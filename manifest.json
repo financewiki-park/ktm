@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "id": "ktm",
+  "name": "ktm",
+  "description": "One-user Telegram bridge for Kindle",
+  "packages": {
+    "ktm": {
+      "name": "ktm",
+      "author": "financewiki-park",
+      "description": "One-user Telegram bridge for Kindle",
+      "artifacts": [
+        {
+          "url": "https://github.com/financewiki-park/ktm/releases/download/v0.1.1/ktm-kindlehf.kpkg",
+          "version": [0, 1, 1],
+          "dependencies": [],
+          "supported_platforms": ["kindlehf"]
+        },
+        {
+          "url": "https://github.com/financewiki-park/ktm/releases/download/v0.1.1/ktm-kindlepw2.kpkg",
+          "version": [0, 1, 1],
+          "dependencies": [],
+          "supported_platforms": ["kindlepw2"]
+        }
+      ]
+    }
+  }
+}

@@ -49,22 +49,30 @@ Release 페이지는 [github.com/financewiki-park/ktm/releases/latest](https://g
 
 ## Kindle Library에 설치
 
-KPM 패키지를 설치하면 `install.sh`가 `/mnt/us/documents/ktm.sh` Scriptlet을 만들고 `/mnt/us/ktm-icon.png`을 설치합니다. 이 Scriptlet이 Kindle 기본 Library에 `ktm` 항목으로 표시되고, 누르면 KPM이 `ktm` package를 실행합니다.
+KPM은 PATH에 자동으로 들어가지 않을 수 있습니다. 먼저 표준 설치 경로를 확인합니다.
 
 ```sh
-kpm install /mnt/us/ktm-kindlehf.kpkg
-# 또는 기기에 맞는 ktm-kindlepw2.kpkg
+KPM=/var/local/kmc/bin/kpm
+ls -l "$KPM"
 ```
 
-설치 직후 아이콘이 바로 안 보이면 Kindle Library를 한 번 새로고침하거나 재부팅하십시오. KPM의 공식 Scriptlet 방식이며 KUAL이나 rootfs 수정은 사용하지 않습니다.
+GitHub 저장소를 KPM에 등록하면 기기 플랫폼에 맞는 패키지를 자동으로 선택합니다.
+
+```sh
+"$KPM" add-repo https://raw.githubusercontent.com/financewiki-park/ktm/main/manifest.json
+"$KPM" update
+"$KPM" install ktm
+```
+
+설치하면 `install.sh`가 `/mnt/us/documents/ktm.sh` Scriptlet과 `/mnt/us/ktm-icon.png` 로고를 만들고, Scriptlet이 Kindle 기본 Library에 `ktm` 항목으로 표시됩니다. 설치 직후 아이콘이 바로 안 보이면 Kindle Library를 한 번 새로고침하거나 재부팅하십시오. KPM의 공식 Scriptlet 방식이며 KUAL이나 rootfs 수정은 사용하지 않습니다.
 
 직접 실행해야 할 때는 다음과 같습니다.
 
 ```sh
-kpm launch ktm
+"$KPM" launch ktm
 ```
 
-`kpm install`의 실제 인자 형식은 설치된 KPM 버전에 따라 `kpm --help`로 확인하십시오.
+`/var/local/kmc/bin/kpm` 파일 자체가 없다면 KPM이 설치되지 않았거나 현재 탈옥 환경의 설치 경로가 다른 것입니다. 그 경우 먼저 기기에서 KPM 설치 경로를 확인해야 합니다.
 
 ## 사용 흐름
 

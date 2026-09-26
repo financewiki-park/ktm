@@ -16,7 +16,7 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#define VERSION "0.1.1"
+#define VERSION "0.1.2"
 #define MAX_RESPONSE (8U * 1024U * 1024U)
 
 typedef struct {

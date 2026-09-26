@@ -1,10 +1,10 @@
 {
-  "manifest_version": 3,
+  "manifest_version": 2,
   "id": "ktm",
   "name": "ktm",
   "author": "financewiki-park",
   "description": "One-user Telegram bridge for Kindle",
-  "version": [0, 1, 1],
+  "version": [0, 1, 2],
   "dependencies": [],
   "supported_platforms": ["kindlehf", "kindlepw2"]
 }

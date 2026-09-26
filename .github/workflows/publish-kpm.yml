@@ -25,30 +25,30 @@ jobs:
           make clean
           make CC=arm-linux-gnueabihf-gcc CFLAGS='-O2 -std=c99 -Wall -Wextra -Wpedantic' LDFLAGS='-static'
           file build/ktm
-          KTM_VERSION=0.1.3 make package TARGET_PLATFORM=kindlehf
-          cp dist/ktm-kindlehf.kpkg packages/ktm/artifacts/ktm_0.1.3_kindlehf.kpkg
+          KTM_VERSION=0.1.4 make package TARGET_PLATFORM=kindlehf
+          cp dist/ktm-kindlehf.kpkg packages/ktm/artifacts/ktm_0.1.4_kindlehf.kpkg
           make clean
           make CC=arm-linux-gnueabi-gcc CFLAGS='-O2 -std=c99 -Wall -Wextra -Wpedantic' LDFLAGS='-static'
           file build/ktm
-          KTM_VERSION=0.1.3 make package TARGET_PLATFORM=kindlepw2
-          cp dist/ktm-kindlepw2.kpkg packages/ktm/artifacts/ktm_0.1.3_kindlepw2.kpkg
+          KTM_VERSION=0.1.4 make package TARGET_PLATFORM=kindlepw2
+          cp dist/ktm-kindlepw2.kpkg packages/ktm/artifacts/ktm_0.1.4_kindlepw2.kpkg
       - name: Verify archive layout and manifest v2
         run: |
           python3 - <<'PY'
           import json, tarfile
-          for path in ('packages/ktm/artifacts/ktm_0.1.3_kindlehf.kpkg', 'packages/ktm/artifacts/ktm_0.1.3_kindlepw2.kpkg'):
+          for path in ('packages/ktm/artifacts/ktm_0.1.4_kindlehf.kpkg', 'packages/ktm/artifacts/ktm_0.1.4_kindlepw2.kpkg'):
               with tarfile.open(path, 'r:gz') as archive:
                   names = archive.getnames()
                   assert 'manifest.json' in names, names
                   assert './manifest.json' not in names, names
                   manifest = json.load(archive.extractfile('manifest.json'))
                   assert manifest['manifest_version'] == 2
-                  assert manifest['version'] == [0, 1, 3]
-                  assert {'install.sh', 'launch.sh', 'uninstall.sh', 'bin/ktm', 'assets/ktm-icon.png', 'scriptlet/ktm.sh'} <= set(names)
+                  assert manifest['version'] == [0, 1, 4]
+                  assert {'install.sh', 'launch.sh', 'uninstall.sh', 'ui.sh', 'bin/ktm', 'assets/ktm-icon.png', 'scriptlet/ktm.sh'} <= set(names)
           PY
       - name: Commit immutable package artifacts
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -f packages/ktm/artifacts
-          git diff --cached --quiet || (git commit -m 'Publish ktm 0.1.3 KPM artifacts' && git push)
+          git diff --cached --quiet || (git commit -m 'Publish ktm 0.1.4 KPM artifacts' && git push)

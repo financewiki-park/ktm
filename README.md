@@ -47,6 +47,27 @@ Release 페이지는 [github.com/financewiki-park/ktm/releases/latest](https://g
 
 ## 사용 흐름
 
+## Kindle Library에 설치
+
+KPM 패키지를 설치하면 `install.sh`가 `/mnt/us/documents/ktm.sh` Scriptlet을 만들고 `/mnt/us/ktm-icon.png`을 설치합니다. 이 Scriptlet이 Kindle 기본 Library에 `ktm` 항목으로 표시되고, 누르면 KPM이 `ktm` package를 실행합니다.
+
+```sh
+kpm install /mnt/us/ktm-kindlehf.kpkg
+# 또는 기기에 맞는 ktm-kindlepw2.kpkg
+```
+
+설치 직후 아이콘이 바로 안 보이면 Kindle Library를 한 번 새로고침하거나 재부팅하십시오. KPM의 공식 Scriptlet 방식이며 KUAL이나 rootfs 수정은 사용하지 않습니다.
+
+직접 실행해야 할 때는 다음과 같습니다.
+
+```sh
+kpm launch ktm
+```
+
+`kpm install`의 실제 인자 형식은 설치된 KPM 버전에 따라 `kpm --help`로 확인하십시오.
+
+## 사용 흐름
+
 ```sh
 ktm setup < bot-token.txt
 ktm pair

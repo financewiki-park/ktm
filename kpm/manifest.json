@@ -1,12 +1,10 @@
 {
-  "package_id": "com.ktm",
+  "manifest_version": 3,
+  "id": "ktm",
   "name": "ktm",
-  "version": "0.1.0",
-  "platforms": ["kindlehf", "kindlepw2"],
-  "entrypoint": "launch.sh",
-  "install": "install.sh",
-  "uninstall": "uninstall.sh",
-  "rootfs_write": false,
-  "persistent_data": "/var/local/ktm",
-  "fallback_data": "/mnt/us/ktm"
+  "author": "financewiki-park",
+  "description": "One-user Telegram bridge for Kindle",
+  "version": [0, 1, 0],
+  "dependencies": [],
+  "supported_platforms": ["kindlehf", "kindlepw2"]
 }

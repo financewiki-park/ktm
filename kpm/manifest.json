@@ -4,7 +4,7 @@
   "name": "ktm",
   "author": "financewiki-park",
   "description": "One-user Telegram bridge for Kindle",
-  "version": [0, 1, 4],
+  "version": [0, 1, 5],
   "dependencies": [{"id": "kterm", "min": [2, 6, 0]}],
   "supported_platforms": ["kindlehf", "kindlepw2"]
 }

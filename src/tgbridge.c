@@ -16,7 +16,7 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#define VERSION "0.1.4"
+#define VERSION "0.1.5"
 #define MAX_RESPONSE (8U * 1024U * 1024U)
 
 typedef struct {
@@ -108,7 +108,9 @@ static int api(App *a, const char *method, const char *body, char **resp, int *h
     if (write_atomic(dat, body, strlen(body), 0600)) goto done;
     FILE *f = fopen(cfg, "w");
     if (!f) goto done;
-    fprintf(f, "url = %s\nrequest = POST\nheader = Content-Type: application/json\ndata-binary = @%s\noutput = %s\nstderr = %s\nsilent\nconnect-timeout = 15\nmax-time = 45\nwrite-out = %%{http_code}\n", url, dat, out, err);
+    /* curl config values containing whitespace must be quoted.  Without it,
+       curl sends a malformed Content-Type header and Telegram rejects sends. */
+    fprintf(f, "url = %s\nrequest = POST\nheader = \"Content-Type: application/json\"\ndata-binary = @%s\noutput = %s\nstderr = %s\nsilent\nconnect-timeout = 15\nmax-time = 45\nwrite-out = %%{http_code}\n", url, dat, out, err);
     fclose(f); chmod(cfg, 0600);
     int fd = open(status, O_WRONLY | O_TRUNC);
     if (fd < 0) goto done;

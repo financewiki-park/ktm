@@ -7,7 +7,7 @@ case "$PLATFORM" in
   *) echo "platform must be kindlehf or kindlepw2" >&2; exit 2 ;;
 esac
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-VERSION=${KTM_VERSION:-0.1.2}
+VERSION=${KTM_VERSION:-0.1.3}
 OUT="$ROOT/dist/ktm-${PLATFORM}-${VERSION}"
 rm -rf "$OUT"
 mkdir -p "$OUT/bin"
@@ -20,5 +20,10 @@ cp -R "$ROOT/kterm" "$OUT/"
 chmod 700 "$OUT"/*.sh "$OUT/bin/ktm" "$OUT/scriptlet/ktm.sh"
 chmod 644 "$OUT/assets/ktm-icon.png"
 mkdir -p "$ROOT/dist"
-tar -C "$OUT" -czf "$ROOT/dist/ktm-${PLATFORM}.kpkg" .
+# KPM 0.2.x expects a gzip tar archive whose manifest is a top-level
+# "manifest.json" entry.  Do not archive "." here: that creates an
+# implementation-dependent "./manifest.json" path which older KPM builds
+# reject while reading the package manifest.
+tar -C "$OUT" -czf "$ROOT/dist/ktm-${PLATFORM}.kpkg" \
+  manifest.json install.sh launch.sh uninstall.sh assets scriptlet bin kterm
 echo "$ROOT/dist/ktm-${PLATFORM}.kpkg"

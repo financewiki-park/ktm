@@ -10,14 +10,14 @@
       "description": "One-user Telegram bridge for Kindle",
       "artifacts": [
         {
-          "url": "https://github.com/financewiki-park/ktm/releases/download/v0.1.2/ktm-kindlehf.kpkg",
-          "version": [0, 1, 2],
+          "url": "packages/ktm/artifacts/ktm_0.1.3_kindlehf.kpkg",
+          "version": [0, 1, 3],
           "dependencies": [],
           "supported_platforms": ["kindlehf"]
         },
         {
-          "url": "https://github.com/financewiki-park/ktm/releases/download/v0.1.2/ktm-kindlepw2.kpkg",
-          "version": [0, 1, 2],
+          "url": "packages/ktm/artifacts/ktm_0.1.3_kindlepw2.kpkg",
+          "version": [0, 1, 3],
           "dependencies": [],
           "supported_platforms": ["kindlepw2"]
         }

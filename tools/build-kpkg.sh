@@ -7,7 +7,8 @@ case "$PLATFORM" in
   *) echo "platform must be kindlehf or kindlepw2" >&2; exit 2 ;;
 esac
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-OUT="$ROOT/dist/ktm-${PLATFORM}-0.1.0"
+VERSION=${KTM_VERSION:-0.1.1}
+OUT="$ROOT/dist/ktm-${PLATFORM}-${VERSION}"
 rm -rf "$OUT"
 mkdir -p "$OUT/bin"
 cp "$BIN" "$OUT/bin/ktm"

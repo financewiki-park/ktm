@@ -2,6 +2,7 @@ CC ?= cc
 CFLAGS ?= -O2 -std=c99 -Wall -Wextra -Wpedantic
 CPPFLAGS ?=
 LDFLAGS ?=
+LDLIBS ?= -ldl
 TARGET_PLATFORM ?= host
 
 BIN := build/ktm
@@ -13,8 +14,8 @@ all: $(BIN)
 build:
 	mkdir -p build
 
-$(BIN): src/tgbridge.c | build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ $< $(LDFLAGS)
+$(BIN): src/tgbridge.c src/x11_paste.c src/x11_paste.h | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ src/tgbridge.c src/x11_paste.c $(LDFLAGS) $(LDLIBS)
 
 test: $(BIN)
 	sh tests/test_host.sh ./$(BIN)

@@ -13,7 +13,7 @@ pause() {
 while :; do
     clear 2>/dev/null || true
     printf '%s\n' 'ktm — Kindle Telegram Bridge'
-    printf '%s\n\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send  5 Status  6 Exit'
+    printf '%s\n\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send  5 Paste latest to KTerm  6 Status  7 Exit'
     printf 'Choose: '
     IFS= read -r choice || exit 0
     case "$choice" in
@@ -44,15 +44,23 @@ while :; do
             pause
             ;;
         5)
+            printf '\nSyncing latest Telegram message…\n'
+            if "$KTM" sync && "$KTM" paste; then
+                printf '\nStarting KTerm shell now. Review the inserted text, then press Enter yourself.\n'
+                exec /bin/sh
+            fi
+            pause
+            ;;
+        6)
             printf '\n'
             "$KTM" status
             pause
             ;;
-        6|q|Q)
+        7|q|Q)
             exit 0
             ;;
         *)
-            printf '\nChoose 1 through 6.\n'
+            printf '\nChoose 1 through 7.\n'
             pause
             ;;
     esac

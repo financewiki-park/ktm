@@ -12,11 +12,12 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
+#include "x11_paste.h"
 
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#define VERSION "0.1.5"
+#define VERSION "0.1.6"
 #define MAX_RESPONSE (8U * 1024U * 1024U)
 
 typedef struct {
@@ -155,9 +156,21 @@ static int inbox(App *a){char p[PATH_MAX];snprintf(p,sizeof(p),"%s/messages.json
 static int last(App *a){char*t=NULL;if(extract_last(a,0,&t)){fprintf(stderr,"inbox is empty\n");return 1;}fwrite(t,1,strlen(t),stdout);free(t);return 0;}
 static int clipboard(const char *text){const char *cmds[2] = {"xclip", "xsel"}; for(int i=0;i<2;i++){int q[2];if(pipe(q))continue;pid_t p=fork();if(p==0){dup2(q[0],0);close(q[0]);close(q[1]);if(i==0)execlp(cmds[i],cmds[i],"-selection","clipboard",(char*)NULL);else execlp(cmds[i],cmds[i],"--clipboard","--input",(char*)NULL);_exit(127);}close(q[0]);write(q[1],text,strlen(text));close(q[1]);int st=0;waitpid(p,&st,0);if(WIFEXITED(st)&&WEXITSTATUS(st)==0)return 1;}return 0;}
 static int copy_msg(App *a,int n,char **v){long long id=n?strtoll(v[0],NULL,10):0;char*t=NULL;if(extract_last(a,id,&t)){fprintf(stderr,"message not found\n");return 1;}char p[PATH_MAX];snprintf(p,sizeof(p),"%s/latest.txt",a->inbox);if(write_atomic(p,t,strlen(t),0600)){free(t);return 1;}printf("Saved exact message to %s%s\n",p,clipboard(t)?" and system clipboard":"");free(t);return 0;}
+static int paste_msg(App *a){
+    char *t=NULL, error[160]={0};
+    if(extract_last(a,0,&t)){fprintf(stderr,"inbox is empty; sync first\n");return 1;}
+    if(!*t){fprintf(stderr,"latest message is empty; nothing was inserted\n");free(t);return 1;}
+    if(strchr(t,'\n')||strchr(t,'\r')){fprintf(stderr,"latest message has a line break; it was not inserted into a shell\n");free(t);return 1;}
+    pid_t p=fork();
+    if(p<0){free(t);fprintf(stderr,"could not start KTerm paste\n");return 1;}
+    if(p==0){sleep(1);int rc=x11_paste_text(t,error,sizeof(error));if(rc)fprintf(stderr,"KTerm paste failed: %s\n",error);free(t);_exit(rc?1:0);}
+    free(t);
+    puts("Opening a shell. The latest Telegram message will appear at its prompt; no Enter is sent.");
+    return 0;
+}
 static int send_msg(App *a,int n,char **v){if(!a->token[0]||strcmp(a->pairing_state,"paired")||a->allowed_chat_id<0)die("setup and pair before sending");size_t cap=4096,z=0;char*t=n?strdup(v[0]):malloc(cap);if(!n){int c;while((c=fgetc(stdin))!=EOF){if(z+2>cap){cap*=2;t=realloc(t,cap);}t[z++]=(char)c;}t[z]=0;}if(!t||!*t)die("empty message");char*e=jescape(t);free(t);char l[16384];int k=snprintf(l,sizeof(l),"{\"id\":%lld,\"text\":\"%s\"}\n",(long long)time(NULL)*1000+(long long)(getpid()%1000),e);free(e);if(k<0||(size_t)k>=sizeof(l))die("message too long");char p[PATH_MAX];snprintf(p,sizeof(p),"%s/pending.jsonl",a->outbox);FILE*f=fopen(p,"a");if(!f)die("cannot open outbox");fchmod(fileno(f),0600);fwrite(l,1,(size_t)k,f);fflush(f);fsync(fileno(f));fclose(f);int rc=outbox(a);if(rc)fprintf(stderr,"message kept in outbox for a later sync\n");else puts("sent");return rc;}
 static int status_cmd(App*a){printf("version=%s\ndata_dir=%s\npairing=%s\noffset=%lld\nallowed_user_id=%s\nallowed_chat_id=%s\n",VERSION,a->root,a->pairing_state,a->offset,a->allowed_user_id>=0?"set":"unset",a->allowed_chat_id>=0?"set":"unset");char p[PATH_MAX];snprintf(p,sizeof(p),"%s/pending.jsonl",a->outbox);struct stat st;printf("outbox_pending=%s\n",stat(p,&st)==0&&st.st_size>0?"yes":"no");snprintf(p,sizeof(p),"%s/last_sync",a->state);long long when=0;load_num(p,&when,0);if(when&&time(NULL)-when>86400)printf("WARNING: Kindle has not synced for more than 24h; Telegram may no longer retain older updates.\n");return 0;}
 static int diagnose(App*a){printf("ktm %s\ndata_dir=%s\nconfig=%s (%s)\ncurl=%s\nplatform=%s\n",VERSION,a->root,a->config,access(a->config,W_OK)==0?"writable":"not writable",getenv("TG_CURL")&&*getenv("TG_CURL")?getenv("TG_CURL"):"PATH/curl",getenv("KINDLE_PLATFORM")&&*getenv("KINDLE_PLATFORM")?getenv("KINDLE_PLATFORM"):"unknown");puts("Run curl --version and kpm --version on the Kindle; no rootfs changes were made.");return 0;}
 static int reset_pairing(App*a){a->allowed_user_id=a->allowed_chat_id=-1;strcpy(a->pairing_state,"none");a->pairing_code[0]=0;a->pairing_expires=0;if(save_config(a)||save_pairing(a))return 1;puts("pairing reset; run ktm pair to create a new code");return 0;}
 
-int main(int argc,char**argv){App a;app_defaults(&a);if(set_root(&a,root_from_env())||ensure_dirs(&a))die("data directory is not writable");char vp[PATH_MAX];snprintf(vp,sizeof(vp),"%s/version",a.state);if(access(vp,F_OK)!=0)write_atomic(vp,VERSION,strlen(VERSION),0600);load_config(&a);if(argc<2){fprintf(stderr,"usage: ktm {setup|pair|sync|inbox|last|copy|send|status|diagnose|reset-pairing}\n");return 2;}int r=0;if(!strcmp(argv[1],"setup"))r=setup(&a);else if(!strcmp(argv[1],"pair"))r=pair(&a);else if(!strcmp(argv[1],"sync"))r=sync_updates(&a);else if(!strcmp(argv[1],"inbox"))r=inbox(&a);else if(!strcmp(argv[1],"last"))r=last(&a);else if(!strcmp(argv[1],"copy"))r=copy_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"send"))r=send_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"status"))r=status_cmd(&a);else if(!strcmp(argv[1],"diagnose"))r=diagnose(&a);else if(!strcmp(argv[1],"reset-pairing"))r=reset_pairing(&a);else{fprintf(stderr,"unknown command: %s\n",argv[1]);r=2;}free(a.root);return r;}
+int main(int argc,char**argv){App a;app_defaults(&a);if(set_root(&a,root_from_env())||ensure_dirs(&a))die("data directory is not writable");char vp[PATH_MAX];snprintf(vp,sizeof(vp),"%s/version",a.state);if(access(vp,F_OK)!=0)write_atomic(vp,VERSION,strlen(VERSION),0600);load_config(&a);if(argc<2){fprintf(stderr,"usage: ktm {setup|pair|sync|inbox|last|copy|paste|send|status|diagnose|reset-pairing}\n");return 2;}int r=0;if(!strcmp(argv[1],"setup"))r=setup(&a);else if(!strcmp(argv[1],"pair"))r=pair(&a);else if(!strcmp(argv[1],"sync"))r=sync_updates(&a);else if(!strcmp(argv[1],"inbox"))r=inbox(&a);else if(!strcmp(argv[1],"last"))r=last(&a);else if(!strcmp(argv[1],"copy"))r=copy_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"paste"))r=paste_msg(&a);else if(!strcmp(argv[1],"send"))r=send_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"status"))r=status_cmd(&a);else if(!strcmp(argv[1],"diagnose"))r=diagnose(&a);else if(!strcmp(argv[1],"reset-pairing"))r=reset_pairing(&a);else{fprintf(stderr,"unknown command: %s\n",argv[1]);r=2;}free(a.root);return r;}

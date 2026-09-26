@@ -29,11 +29,13 @@ Kindle용 cross compiler가 있는 경우 `CC`, `CFLAGS`, `SYSROOT`를 명시합
 
 ## GitHub 배포
 
-저장소 이름은 `ktm`으로 사용하고, `v0.1.0`처럼 태그를 push하면 GitHub Actions가 테스트 후 두 플랫폼 패키지를 Release에 자동 업로드합니다.
+저장소 이름은 `ktm`입니다. 새 버전은 테스트와 패키징 후 GitHub Release에 업로드합니다.
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+make test
+make package TARGET_PLATFORM=kindlehf
+make package TARGET_PLATFORM=kindlepw2
+gh release create v0.1.1 dist/ktm-kindlehf.kpkg dist/ktm-kindlepw2.kpkg --title "ktm v0.1.1" --generate-notes
 ```
 
 저장소를 `financewiki-park/ktm`으로 만들 경우 가장 짧은 실사용 다운로드 주소는 다음과 같습니다.

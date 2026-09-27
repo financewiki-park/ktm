@@ -13,7 +13,7 @@ if [ ! -d /mnt/us/documents ]; then
 fi
 cp "$SELF_DIR/assets/ktm-icon.png" "$ICON"
 cp "$SELF_DIR/scriptlet/ktm.sh" "$SCRIPTLET"
-chmod 700 "$SELF_DIR/launch.sh" "$SELF_DIR/uninstall.sh" "$SELF_DIR/bin/ktm" "$SELF_DIR/bin/ktmterm" "$SCRIPTLET"
+chmod 700 "$SELF_DIR/launch.sh" "$SELF_DIR/session.sh" "$SELF_DIR/uninstall.sh" "$SELF_DIR/bin/ktm" "$SELF_DIR/bin/ktmterm" "$SCRIPTLET"
 chmod 644 "$ICON"
 echo "ktm installed without rootfs modification."
 echo "The ktm Scriptlet should appear in the Kindle Library."

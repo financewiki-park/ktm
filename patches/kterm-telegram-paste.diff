@@ -1,37 +1,40 @@
 diff --git a/kterm.c b/kterm.c
-index afaf99d..057b561 100644
+index afaf99d..31dbcc1 100644
 --- a/kterm.c
 +++ b/kterm.c
-@@ -100,4 +100,37 @@ static void terminal_exit(void) {
+@@ -100,6 +100,53 @@ static void terminal_exit(void) {
      gtk_main_quit();
  }
  
-+/**
-+ * Feed one pending ktm message directly to VTE's child input.  This is not an
-+ * X11 synthetic key event: VTE writes the bytes to its PTY.  Return/line-feed
-+ * and all control bytes are rejected so a Telegram message can never execute
-+ * itself.  Ctrl-U clears only the shell's editable line before insertion.
-+ */
++/* Feed one explicitly requested Telegram message into this terminal's child.
++ * The request file prevents ordinary syncs from altering terminal input. */
 +static gboolean paste_file_cb(gpointer data) {
 +    GtkWidget *terminal = GTK_WIDGET(data);
 +    const gchar *path = g_object_get_data(G_OBJECT(terminal), "ktm-paste-file");
 +    gchar *text = NULL;
 +    gsize length = 0;
 +    GError *error = NULL;
++
 +    if (!path || !g_file_get_contents(path, &text, &length, &error)) {
-+        if (error) { g_printerr("ktm paste: %s\n", error->message); g_error_free(error); }
++        if (error) {
++            g_printerr("ktm: cannot read pending message: %s\n", error->message);
++            g_error_free(error);
++        }
 +        return FALSE;
 +    }
-+    if (length == 0 || g_utf8_validate(text, length, NULL) == FALSE) {
-+        g_printerr("ktm paste: message is empty or not UTF-8\n");
-+        g_free(text); return FALSE;
++    if (length == 0 || !g_utf8_validate(text, length, NULL)) {
++        g_printerr("ktm: pending message is empty or not UTF-8\n");
++        g_free(text);
++        return FALSE;
 +    }
 +    for (gsize i = 0; i < length; i++) {
-+        if ((guchar)text[i] < 0x20 || (guchar)text[i] == 0x7f) {
-+            g_printerr("ktm paste: message contains a newline or control character\n");
-+            g_free(text); return FALSE;
++        if (((guchar) text[i] < 0x20 && text[i] != '\t') || text[i] == 0x7f) {
++            g_printerr("ktm: pending message contains control characters\n");
++            g_free(text);
++            return FALSE;
 +        }
 +    }
++
 +    vte_terminal_feed_child(VTE_TERMINAL(terminal), "\025", 1);
 +    vte_terminal_feed_child(VTE_TERMINAL(terminal), text, length);
 +    unlink(path);
@@ -39,42 +42,61 @@ index afaf99d..057b561 100644
 +    return FALSE;
 +}
 +
++static gboolean paste_request_cb(gpointer data) {
++    GtkWidget *terminal = GTK_WIDGET(data);
++    const gchar *request = g_object_get_data(G_OBJECT(terminal), "ktm-paste-request");
++
++    if (!request || access(request, F_OK) != 0) return TRUE;
++    unlink(request);
++    /* Let session.sh replace the menu program with the interactive shell first. */
++    g_timeout_add(800, paste_file_cb, terminal);
++    return FALSE;
++}
++
  #if VTE_CHECK_VERSION(0,20,0)
-@@ -626,6 +659,7 @@ gint main(gint argc, gchar **argv) {
+ /**
+  * Set terminal cursor shape
+@@ -626,6 +673,8 @@ gint main(gint argc, gchar **argv) {
      gint c = -1;
      gint i = 0;
      gchar *command = NULL;
 +    gchar *paste_file = NULL;
++    gchar *paste_request = NULL;
      gchar *envv[TERM_ARGS_MAX] = { NULL };
      gint envc = 0;
  #ifdef KINDLE
-@@ -636,7 +670,7 @@ gint main(gint argc, gchar **argv) {
+@@ -636,7 +685,7 @@ gint main(gint argc, gchar **argv) {
      // set terminfo path
      envv[envc++] = "TERMINFO=" TERMINFO_PATH;
  #endif
 -    while((c = getopt(argc, argv, "c:de:E:f:hk:l:o:s:t:u:v")) != -1) {
-+    while((c = getopt(argc, argv, "c:de:E:f:hk:l:o:P:s:t:u:v")) != -1) {
++    while((c = getopt(argc, argv, "c:de:E:f:hk:l:o:P:R:s:t:u:v")) != -1) {
          switch(c) {
              case 'c':
                  i = atoi(optarg);
-@@ -669,6 +703,9 @@ gint main(gint argc, gchar **argv) {
+@@ -669,6 +718,12 @@ gint main(gint argc, gchar **argv) {
              case 'o':
                  if (optarg[0] == 'U' || optarg[0] == 'R' || optarg[0] == 'L') { conf->orientation = optarg[0]; }
                  break;
 +            case 'P':
-+                paste_file = g_strdup(optarg);
++                paste_file = optarg;
++                break;
++            case 'R':
++                paste_request = optarg;
 +                break;
              case 's':
                  i = atoi(optarg);
                  if (i > 0) conf->font_size = (guint) i;
-@@ -741,5 +778,10 @@ gint main(gint argc, gchar **argv) {
+@@ -741,6 +796,12 @@ gint main(gint argc, gchar **argv) {
      }
      gtk_widget_set_name(terminal, "termBox");
      gtk_box_pack_start(GTK_BOX(vbox), terminal, TRUE, TRUE, 0);
-+    if (paste_file) {
-+        g_object_set_data_full(G_OBJECT(terminal), "ktm-paste-file", paste_file, g_free);
-+        /* Let the shell create its prompt before sending the editable input. */
-+        g_timeout_add(700, paste_file_cb, terminal);
++
++    if (paste_file && paste_request) {
++        g_object_set_data(G_OBJECT(terminal), "ktm-paste-file", paste_file);
++        g_object_set_data(G_OBJECT(terminal), "ktm-paste-request", paste_request);
++        g_timeout_add(200, paste_request_cb, terminal);
 +    }
      
      GtkWidget *menu = build_popup(terminal, vbox);
+     // signals

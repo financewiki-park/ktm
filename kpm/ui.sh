@@ -47,10 +47,10 @@ while :; do
             printf '\nSyncing one pending Telegram message…\n'
             if "$KTM" sync; then
                 if pending_path=$("$KTM" pending-path); then
-                    printf '\nStarting the native terminal. It will replace the editable command line without pressing Enter.\n'
-                    export DISPLAY="${DISPLAY:-:0}"
-                    export TERM=xterm TERMINFO=/mnt/us/kterm/vte/terminfo
-                    exec "$SELF_DIR/bin/ktmterm" -P "$pending_path"
+                    request_path=${pending_path%/*}/paste-request
+                    (umask 077; : > "$request_path")
+                    printf '\nOpening the shell with the message on its editable line. Enter is not sent.\n'
+                    exit 42
                 fi
             fi
             pause

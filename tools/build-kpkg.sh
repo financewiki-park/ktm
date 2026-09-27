@@ -8,13 +8,13 @@ case "$PLATFORM" in
   *) echo "platform must be kindlehf or kindlepw2" >&2; exit 2 ;;
 esac
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-VERSION=${KTM_VERSION:-0.1.9}
+VERSION=${KTM_VERSION:-0.1.10}
 OUT="$ROOT/dist/ktm-${PLATFORM}-${VERSION}"
 rm -rf "$OUT"
 mkdir -p "$OUT/bin"
 cp "$BIN" "$OUT/bin/ktm"
 cp "$NATIVE_TERM" "$OUT/bin/ktmterm"
-cp "$ROOT/kpm/manifest.json" "$ROOT/kpm/install.sh" "$ROOT/kpm/launch.sh" "$ROOT/kpm/uninstall.sh" "$ROOT/kpm/ui.sh" "$OUT/"
+cp "$ROOT/kpm/manifest.json" "$ROOT/kpm/install.sh" "$ROOT/kpm/launch.sh" "$ROOT/kpm/uninstall.sh" "$ROOT/kpm/ui.sh" "$ROOT/kpm/session.sh" "$OUT/"
 mkdir -p "$OUT/assets" "$OUT/scriptlet"
 cp "$ROOT/assets/ktm-icon.png" "$OUT/assets/ktm-icon.png"
 cp "$ROOT/kpm/scriptlet/ktm.sh" "$OUT/scriptlet/ktm.sh"
@@ -27,5 +27,5 @@ mkdir -p "$ROOT/dist"
 # implementation-dependent "./manifest.json" path which older KPM builds
 # reject while reading the package manifest.
 tar -C "$OUT" -czf "$ROOT/dist/ktm-${PLATFORM}.kpkg" \
-  manifest.json install.sh launch.sh uninstall.sh ui.sh assets scriptlet bin kterm
+  manifest.json install.sh launch.sh uninstall.sh ui.sh session.sh assets scriptlet bin kterm
 echo "$ROOT/dist/ktm-${PLATFORM}.kpkg"

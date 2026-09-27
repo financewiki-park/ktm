@@ -8,7 +8,9 @@ export KTM_DATA_DIR="$TMP/data"
 export TG_CURL="$ROOT/tests/mock_curl.sh"
 
 printf 'not-a-real-token\n' | "$BIN" setup >/dev/null
+"$BIN" bot-info | grep -q 'Configured bot: @ktm_test_bot (id 123)'
 code=$($BIN pair | awk '/Pairing code/{print $NF}')
+MOCK_MODE=empty "$BIN" sync | grep -q 'Pairing still waiting'
 MOCK_MODE=pair MOCK_PAIR_CODE="$code" "$BIN" sync >/dev/null
 MOCK_MODE=message "$BIN" sync >/dev/null
 "$BIN" last > "$TMP/last.txt"

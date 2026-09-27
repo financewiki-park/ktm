@@ -47,19 +47,19 @@ class LauncherTests(unittest.TestCase):
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"ktm 0.1.14", p.stdout)
+        self.assertIn(b"ktm 0.1.15", p.stdout)
 
     def test_sync_error_returns_to_menu(self):
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"5\n\n7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertEqual(p.stdout.count(b"ktm 0.1.14"), 2)
+        self.assertEqual(p.stdout.count(b"ktm 0.1.15"), 2)
 
     def test_cli_status_does_not_start_gui(self):
         p = subprocess.run(["sh", str(self.package / "launch.sh"), "status"],
                            env=self.env, capture_output=True)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"version=0.1.14", p.stdout)
+        self.assertIn(b"version=0.1.15", p.stdout)
 
     def test_full_menu_8_edit_shell_and_return_to_menu(self):
         # Emulate KPM routing plus KTerm's exact space-only -e parser. There

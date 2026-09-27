@@ -16,7 +16,7 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#define VERSION "0.1.14"
+#define VERSION "0.1.15"
 #define MAX_RESPONSE (8U * 1024U * 1024U)
 
 typedef struct {
@@ -165,12 +165,33 @@ static int append_message(App *a,long long uid,long long mid,long long from,long
 
 static int outbox(App *a) { char p[PATH_MAX];snprintf(p,sizeof(p),"%s/pending.jsonl",a->outbox);FILE *f=fopen(p,"r");if(!f)return 0;char tmp[PATH_MAX];snprintf(tmp,sizeof(tmp),"%s/pending.jsonl.tmp.XXXXXX",a->outbox);int fd=mkstemp(tmp);if(fd<0){fclose(f);return 1;}fchmod(fd,0600);FILE *w=fdopen(fd,"w");char l[16384];int fail=0;while(fgets(l,sizeof(l),f)){const char *s,*e;char *t=NULL;if(!jget(l,l+strlen(l),"text",&s,&e)||!jstr(s,e,&t)){fputs(l,w);continue;}char *x=jescape(t);free(t);char b[16384];snprintf(b,sizeof(b),"{\"chat_id\":%lld,\"text\":\"%s\"}",a->allowed_chat_id,x);free(x);char *r=NULL,d[128]={0};int hc=0,cc=0;if(api(a,"sendMessage",b,&r,&hc,&cc,d,sizeof(d))||api_ok(r,NULL,NULL)!=1){transport_error(cc,hc,d);fputs(l,w);fail=1;free(r);break;}free(r);}if(fail)while(fgets(l,sizeof(l),f))fputs(l,w);fclose(f);fflush(w);fsync(fileno(w));fclose(w);if(fail){rename(tmp,p);chmod(p,0600);}else{unlink(tmp);unlink(p);}return fail;}
 
+static int bot_info(App *a) {
+    if(!a->token[0]) { puts("Configured bot: none"); return 0; }
+    char *r=NULL,d[128]={0}; int hc=0,cc=0;
+    if(api(a,"getMe","{}",&r,&hc,&cc,d,sizeof(d))||api_ok(r,NULL,NULL)!=1) {
+        transport_error(cc,hc,d); free(r); return 1;
+    }
+    const char *rs,*re,*s,*e; long long id=0; char *username=NULL,*name=NULL;
+    if(!jget(r,r+strlen(r),"result",&rs,&re) ||
+       !jget(rs,re,"id",&s,&e) || !jlong(s,e,&id)) {
+        free(r); fputs("Telegram returned an invalid getMe response.\n",stderr); return 1;
+    }
+    if(jget(rs,re,"username",&s,&e)) jstr(s,e,&username);
+    if(jget(rs,re,"first_name",&s,&e)) jstr(s,e,&name);
+    printf("Configured bot: %s%s (id %lld)\n",
+           username?"@":"",username?username:(name?name:"unnamed"),(long long)id);
+    free(username); free(name); free(r); return 0;
+}
+
 static int sync_updates(App *a) {
     char b[256];snprintf(b,sizeof(b),"{\"offset\":%lld,\"timeout\":%d,\"allowed_updates\":[\"message\"]}",a->offset,a->poll_timeout);char *r=NULL,d[128]={0};int hc=0,cc=0;if(api(a,"getUpdates",b,&r,&hc,&cc,d,sizeof(d))){transport_error(cc,hc,d);return 1;}long long ec=0,ra=0;int ok=api_ok(r,&ec,&ra);if(ok!=1){if(ra)fprintf(stderr,"Telegram rate limit; retry after %lld seconds\n",ra);else fprintf(stderr,"Telegram API error code=%lld\n",ec);free(r);return 1;}const char *as,*ae;if(!jget(r,r+strlen(r),"result",&as,&ae)||*as!='['){free(r);fprintf(stderr,"malformed Telegram JSON: result is not an array\n");return 1;}const char *p=as+1;while(p<ae&&*p!=']'){while(p<ae&&(isspace((unsigned char)*p)||*p==','))p++;if(p>=ae||*p==']')break;const char *ue=jskip(p,ae);if(!ue){free(r);fprintf(stderr,"malformed update JSON; offset unchanged\n");return 1;}const char *s,*e;long long uid=0;if(!jget(p,ue,"update_id",&s,&e)||!jlong(s,e,&uid)){free(r);return 1;}const char *ms,*me;if(!jget(p,ue,"message",&ms,&me)){a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);if(save_num(op,a->offset)){free(r);return 1;}p=ue;continue;}char *text=NULL;long long mid=0,from=0,chat=0,date=0;if(!jget(ms,me,"text",&s,&e)||!jstr(s,e,&text)||!jget(ms,me,"message_id",&s,&e)||!jlong(s,e,&mid)||!jget(ms,me,"date",&s,&e)||!jlong(s,e,&date)){free(text);a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);save_num(op,a->offset);p=ue;continue;}const char *os,*oe;if(jget(ms,me,"from",&os,&oe)&&jget(os,oe,"id",&s,&e))jlong(s,e,&from);if(jget(ms,me,"chat",&os,&oe)&&jget(os,oe,"id",&s,&e))jlong(s,e,&chat);
         if(!strcmp(a->pairing_state,"pending")){char want[64];snprintf(want,sizeof(want),"/pair %s",a->pairing_code);if(time(NULL)<=a->pairing_expires&&!strcmp(text,want)){a->allowed_user_id=from;a->allowed_chat_id=chat;strcpy(a->pairing_state,"paired");a->pairing_code[0]=0;a->pairing_expires=0;if(save_config(a)||save_pairing(a)){free(text);free(r);return 1;}puts("Pairing succeeded.");}else log_msg(a,"pairing message discarded");}
         else if(!strcmp(a->pairing_state,"paired")){if(from!=a->allowed_user_id||chat!=a->allowed_chat_id)log_msg(a,"unauthorized message discarded from user/chat %lld/%lld",from,chat);else if(append_message(a,uid,mid,from,chat,date,text)){free(text);free(r);return 1;}}
         else log_msg(a,"message discarded before pairing");free(text);a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);if(save_num(op,a->offset)){free(r);return 1;}p=ue;}
-    mark_sync(a); free(r);return outbox(a);
+    mark_sync(a); free(r);
+    if(!strcmp(a->pairing_state,"pending"))
+        printf("Pairing still waiting. Send the exact /pair code shown by option 2 to the configured bot, then choose 3 again.\n");
+    return outbox(a);
 }
 
 static int extract_last(App *a,long long wanted,char **out){char p[PATH_MAX];if(wanted)return -1;snprintf(p,sizeof(p),"%s/current.txt",a->inbox);char *t=read_all(p,NULL);if(!t)return -1;*out=t;return 0;}
@@ -188,10 +209,10 @@ static int pending_path(App *a){
     return 0;
 }
 static int send_msg(App *a,int n,char **v){if(!a->token[0]||strcmp(a->pairing_state,"paired")||a->allowed_chat_id<0)die("setup and pair before sending");size_t cap=4096,z=0;char*t=n?strdup(v[0]):malloc(cap);if(!n){int c;while((c=fgetc(stdin))!=EOF){if(z+2>cap){cap*=2;t=realloc(t,cap);}t[z++]=(char)c;}t[z]=0;}if(!t||!*t)die("empty message");char*e=jescape(t);free(t);char l[16384];int k=snprintf(l,sizeof(l),"{\"id\":%lld,\"text\":\"%s\"}\n",(long long)time(NULL)*1000+(long long)(getpid()%1000),e);free(e);if(k<0||(size_t)k>=sizeof(l))die("message too long");char p[PATH_MAX];snprintf(p,sizeof(p),"%s/pending.jsonl",a->outbox);FILE*f=fopen(p,"a");if(!f)die("cannot open outbox");fchmod(fileno(f),0600);fwrite(l,1,(size_t)k,f);fflush(f);fsync(fileno(f));fclose(f);int rc=outbox(a);if(rc)fprintf(stderr,"message kept in outbox for a later sync\n");else puts("sent");return rc;}
-static int status_cmd(App*a){printf("version=%s\ndata_dir=%s\npairing=%s\noffset=%lld\nallowed_user_id=%s\nallowed_chat_id=%s\n",VERSION,a->root,a->pairing_state,a->offset,a->allowed_user_id>=0?"set":"unset",a->allowed_chat_id>=0?"set":"unset");char p[PATH_MAX];snprintf(p,sizeof(p),"%s/pending.jsonl",a->outbox);struct stat st;printf("outbox_pending=%s\n",stat(p,&st)==0&&st.st_size>0?"yes":"no");snprintf(p,sizeof(p),"%s/last_sync",a->state);long long when=0;load_num(p,&when,0);if(when&&time(NULL)-when>86400)printf("WARNING: Kindle has not synced for more than 24h; Telegram may no longer retain older updates.\n");return 0;}
+static int status_cmd(App*a){printf("version=%s\ndata_dir=%s\npairing=%s\noffset=%lld\npaired_user_id=%lld\npaired_chat_id=%lld\n",VERSION,a->root,a->pairing_state,a->offset,a->allowed_user_id,a->allowed_chat_id);if(!strcmp(a->pairing_state,"pending"))printf("pair_code=%s\npair_expires=%lld\n",a->pairing_code,a->pairing_expires);char p[PATH_MAX];snprintf(p,sizeof(p),"%s/pending.jsonl",a->outbox);struct stat st;printf("outbox_pending=%s\n",stat(p,&st)==0&&st.st_size>0?"yes":"no");snprintf(p,sizeof(p),"%s/last_sync",a->state);long long when=0;load_num(p,&when,0);if(when&&time(NULL)-when>86400)printf("WARNING: Kindle has not synced for more than 24h; Telegram may no longer retain older updates.\n");return 0;}
 static int diagnose(App*a){printf("ktm %s\ndata_dir=%s\nconfig=%s (%s)\ncurl=%s\nplatform=%s\n",VERSION,a->root,a->config,access(a->config,W_OK)==0?"writable":"not writable",getenv("TG_CURL")&&*getenv("TG_CURL")?getenv("TG_CURL"):"PATH/curl",getenv("KINDLE_PLATFORM")&&*getenv("KINDLE_PLATFORM")?getenv("KINDLE_PLATFORM"):"unknown");puts("Run curl --version and kpm --version on the Kindle; no rootfs changes were made.");return 0;}
 static int reset_pairing(App*a){a->allowed_user_id=a->allowed_chat_id=-1;strcpy(a->pairing_state,"none");a->pairing_code[0]=0;a->pairing_expires=0;if(save_config(a)||save_pairing(a))return 1;puts("pairing reset; run ktm pair to create a new code");return 0;}
 
 #include "run_command.h"
 
-int main(int argc,char**argv){App a;app_defaults(&a);if(set_root(&a,root_from_env())||ensure_dirs(&a))die("data directory is not writable");char vp[PATH_MAX];snprintf(vp,sizeof(vp),"%s/version",a.state);if(access(vp,F_OK)!=0)write_atomic(vp,VERSION,strlen(VERSION),0600);load_config(&a);if(argc<2){fprintf(stderr,"usage: ktm {setup|pair|sync|inbox|last|copy|pending-path|run|send|status|diagnose|reset-pairing}\n");return 2;}int r=0;if(!strcmp(argv[1],"setup"))r=setup(&a);else if(!strcmp(argv[1],"pair"))r=pair(&a);else if(!strcmp(argv[1],"sync"))r=sync_updates(&a);else if(!strcmp(argv[1],"inbox"))r=inbox(&a);else if(!strcmp(argv[1],"last"))r=last(&a);else if(!strcmp(argv[1],"copy"))r=copy_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"pending-path"))r=pending_path(&a);else if(!strcmp(argv[1],"run"))r=run_command(&a);else if(!strcmp(argv[1],"send"))r=send_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"status"))r=status_cmd(&a);else if(!strcmp(argv[1],"diagnose"))r=diagnose(&a);else if(!strcmp(argv[1],"reset-pairing"))r=reset_pairing(&a);else{fprintf(stderr,"unknown command: %s\n",argv[1]);r=2;}free(a.root);return r;}
+int main(int argc,char**argv){App a;app_defaults(&a);if(set_root(&a,root_from_env())||ensure_dirs(&a))die("data directory is not writable");char vp[PATH_MAX];snprintf(vp,sizeof(vp),"%s/version",a.state);if(access(vp,F_OK)!=0)write_atomic(vp,VERSION,strlen(VERSION),0600);load_config(&a);if(argc<2){fprintf(stderr,"usage: ktm {setup|pair|sync|inbox|last|copy|pending-path|run|send|bot-info|status|diagnose|reset-pairing}\n");return 2;}int r=0;if(!strcmp(argv[1],"setup"))r=setup(&a);else if(!strcmp(argv[1],"pair"))r=pair(&a);else if(!strcmp(argv[1],"sync"))r=sync_updates(&a);else if(!strcmp(argv[1],"inbox"))r=inbox(&a);else if(!strcmp(argv[1],"last"))r=last(&a);else if(!strcmp(argv[1],"copy"))r=copy_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"pending-path"))r=pending_path(&a);else if(!strcmp(argv[1],"run"))r=run_command(&a);else if(!strcmp(argv[1],"send"))r=send_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"bot-info"))r=bot_info(&a);else if(!strcmp(argv[1],"status"))r=status_cmd(&a);else if(!strcmp(argv[1],"diagnose"))r=diagnose(&a);else if(!strcmp(argv[1],"reset-pairing"))r=reset_pairing(&a);else{fprintf(stderr,"unknown command: %s\n",argv[1]);r=2;}free(a.root);return r;}

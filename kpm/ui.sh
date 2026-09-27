@@ -12,7 +12,7 @@ pause() {
 
 while :; do
     clear 2>/dev/null || true
-    printf '%s\n' 'ktm 0.1.14 — Kindle Telegram Bridge'
+    printf '%s\n' 'ktm 0.1.15 — Kindle Telegram Bridge'
     printf '%s\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send'
     printf '%s\n\n' '5 Run received command  6 Status  7 Exit  8 Edit one-line command'
     printf 'Choose: '
@@ -58,9 +58,10 @@ while :; do
             fi
             pause
             ;;
-        6)
-            printf '\n'
-            "$KTM" status
+       6)
+           printf '\n'
+            "$KTM" bot-info || true
+           "$KTM" status
             pause
             ;;
         7|q|Q)

@@ -9,7 +9,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install build utilities
-        run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool gettext intltool flex bison gperf help2man texinfo libarchive-dev nettle-dev aria2 zstd libncurses-dev
+        run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool gettext intltool flex bison gperf help2man texinfo libarchive-dev nettle-dev aria2 zstd libncurses-dev libglib2.0-dev-bin
       - name: Install Kindle SDK
         run: |
           mkdir -p "$HOME/x-tools"

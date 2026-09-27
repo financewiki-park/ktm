@@ -64,7 +64,7 @@ jobs:
           cd kterm
           git apply "$GITHUB_WORKSPACE/patches/kterm-telegram-paste.diff"
           ./autogen.sh
-          ./configure --host="$target" --enable-kindle --sysconfdir=/mnt/us/extensions/kterm
+          ./configure --host="$target" --enable-kindle --sysconfdir=/mnt/us/kterm
           make -j2
           "$target-strip" kterm
           mkdir -p "$GITHUB_WORKSPACE/native"
@@ -75,20 +75,20 @@ jobs:
           make clean
           make CC=arm-linux-gnueabihf-gcc CFLAGS='-O2 -std=c99 -Wall -Wextra -Wpedantic' LDFLAGS='-static' LDLIBS='-ldl'
           file build/ktm
-          KTM_VERSION=0.1.8 sh tools/build-kpkg.sh ./build/ktm kindlehf ./native/ktmterm
-          cp dist/ktm-kindlehf.kpkg packages/ktm/artifacts/ktm_0.1.8_kindlehf.kpkg
+          KTM_VERSION=0.1.9 sh tools/build-kpkg.sh ./build/ktm kindlehf ./native/ktmterm
+          cp dist/ktm-kindlehf.kpkg packages/ktm/artifacts/ktm_0.1.9_kindlehf.kpkg
       - name: Verify archive layout and manifest v2
         run: |
           python3 - <<'PY'
           import json, tarfile
-          for path in ('packages/ktm/artifacts/ktm_0.1.8_kindlehf.kpkg',):
+          for path in ('packages/ktm/artifacts/ktm_0.1.9_kindlehf.kpkg',):
               with tarfile.open(path, 'r:gz') as archive:
                   names = archive.getnames()
                   assert 'manifest.json' in names, names
                   assert './manifest.json' not in names, names
                   manifest = json.load(archive.extractfile('manifest.json'))
                   assert manifest['manifest_version'] == 2
-                  assert manifest['version'] == [0, 1, 8]
+                  assert manifest['version'] == [0, 1, 9]
                   assert {'install.sh', 'launch.sh', 'uninstall.sh', 'ui.sh', 'bin/ktm', 'bin/ktmterm', 'assets/ktm-icon.png', 'scriptlet/ktm.sh'} <= set(names)
           PY
       - name: Commit immutable package artifacts
@@ -96,4 +96,4 @@ jobs:
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -f packages/ktm/artifacts
-          git diff --cached --quiet || (git commit -m 'Publish ktm 0.1.8 KPM artifacts' && git push)
+          git diff --cached --quiet || (git commit -m 'Publish ktm 0.1.9 KPM artifacts' && git push)

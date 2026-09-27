@@ -48,6 +48,8 @@ while :; do
             if "$KTM" sync; then
                 if pending_path=$("$KTM" pending-path); then
                     printf '\nStarting the native terminal. It will replace the editable command line without pressing Enter.\n'
+                    export DISPLAY="${DISPLAY:-:0}"
+                    export TERM=xterm TERMINFO=/mnt/us/kterm/vte/terminfo
                     exec "$SELF_DIR/bin/ktmterm" -P "$pending_path"
                 fi
             fi

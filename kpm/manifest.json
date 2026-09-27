@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "id": "ktm",
   "name": "ktm",
-  "author": "financewiki-park",
+  "author": "kindle-lab",
   "description": "One-user Telegram bridge for Kindle",
   "version": [0, 1, 15],
   "dependencies": [{"id": "kterm", "min": [2, 6, 0]}],

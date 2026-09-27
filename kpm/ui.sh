@@ -12,8 +12,9 @@ pause() {
 
 while :; do
     clear 2>/dev/null || true
-    printf '%s\n' 'ktm 0.1.12 — Kindle Telegram Bridge'
-    printf '%s\n\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send  5 Replace KTerm line  6 Status  7 Exit'
+    printf '%s\n' 'ktm 0.1.13 — Kindle Telegram Bridge'
+    printf '%s\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send'
+    printf '%s\n\n' '5 Run received command  6 Status  7 Exit  8 Edit one-line command'
     printf 'Choose: '
     IFS= read -r choice || exit 0
     case "$choice" in
@@ -43,12 +44,14 @@ while :; do
             fi
             pause
             ;;
-        5)
+        5|8)
             printf '\nSyncing one pending Telegram message…\n'
             if ! "$KTM" sync; then
                 printf '\nSync failed. Checking the message already saved on this Kindle.\n'
             fi
-            if pending_path=$("$KTM" pending-path); then
+            if [ "$choice" = 5 ]; then
+                "$KTM" run
+            elif pending_path=$("$KTM" pending-path); then
                 if "$SELF_DIR/bin/ktm-input" --check "$pending_path"; then
                     exit 42
                 fi
@@ -64,7 +67,7 @@ while :; do
             exit 0
             ;;
         *)
-            printf '\nChoose 1 through 7.\n'
+            printf '\nChoose 1 through 8.\n'
             pause
             ;;
     esac

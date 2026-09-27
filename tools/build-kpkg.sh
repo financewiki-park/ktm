@@ -8,7 +8,7 @@ case "$PLATFORM" in
   *) echo "this release supports kindlehf only" >&2; exit 2 ;;
 esac
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-VERSION=${KTM_VERSION:-0.1.12}
+VERSION=${KTM_VERSION:-0.1.13}
 OUT="$ROOT/dist/ktm-${PLATFORM}-${VERSION}"
 # Never ship a stale binary left in a staging directory by an older build.
 if [ -e "$OUT" ]; then OUT=$(mktemp -d "$ROOT/dist/ktm-${PLATFORM}-${VERSION}.XXXXXX"); fi

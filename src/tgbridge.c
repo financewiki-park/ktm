@@ -16,7 +16,7 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#define VERSION "0.1.12"
+#define VERSION "0.1.13"
 #define MAX_RESPONSE (8U * 1024U * 1024U)
 
 typedef struct {
@@ -175,4 +175,6 @@ static int status_cmd(App*a){printf("version=%s\ndata_dir=%s\npairing=%s\noffset
 static int diagnose(App*a){printf("ktm %s\ndata_dir=%s\nconfig=%s (%s)\ncurl=%s\nplatform=%s\n",VERSION,a->root,a->config,access(a->config,W_OK)==0?"writable":"not writable",getenv("TG_CURL")&&*getenv("TG_CURL")?getenv("TG_CURL"):"PATH/curl",getenv("KINDLE_PLATFORM")&&*getenv("KINDLE_PLATFORM")?getenv("KINDLE_PLATFORM"):"unknown");puts("Run curl --version and kpm --version on the Kindle; no rootfs changes were made.");return 0;}
 static int reset_pairing(App*a){a->allowed_user_id=a->allowed_chat_id=-1;strcpy(a->pairing_state,"none");a->pairing_code[0]=0;a->pairing_expires=0;if(save_config(a)||save_pairing(a))return 1;puts("pairing reset; run ktm pair to create a new code");return 0;}
 
-int main(int argc,char**argv){App a;app_defaults(&a);if(set_root(&a,root_from_env())||ensure_dirs(&a))die("data directory is not writable");char vp[PATH_MAX];snprintf(vp,sizeof(vp),"%s/version",a.state);if(access(vp,F_OK)!=0)write_atomic(vp,VERSION,strlen(VERSION),0600);load_config(&a);if(argc<2){fprintf(stderr,"usage: ktm {setup|pair|sync|inbox|last|copy|pending-path|send|status|diagnose|reset-pairing}\n");return 2;}int r=0;if(!strcmp(argv[1],"setup"))r=setup(&a);else if(!strcmp(argv[1],"pair"))r=pair(&a);else if(!strcmp(argv[1],"sync"))r=sync_updates(&a);else if(!strcmp(argv[1],"inbox"))r=inbox(&a);else if(!strcmp(argv[1],"last"))r=last(&a);else if(!strcmp(argv[1],"copy"))r=copy_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"pending-path"))r=pending_path(&a);else if(!strcmp(argv[1],"send"))r=send_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"status"))r=status_cmd(&a);else if(!strcmp(argv[1],"diagnose"))r=diagnose(&a);else if(!strcmp(argv[1],"reset-pairing"))r=reset_pairing(&a);else{fprintf(stderr,"unknown command: %s\n",argv[1]);r=2;}free(a.root);return r;}
+#include "run_command.h"
+
+int main(int argc,char**argv){App a;app_defaults(&a);if(set_root(&a,root_from_env())||ensure_dirs(&a))die("data directory is not writable");char vp[PATH_MAX];snprintf(vp,sizeof(vp),"%s/version",a.state);if(access(vp,F_OK)!=0)write_atomic(vp,VERSION,strlen(VERSION),0600);load_config(&a);if(argc<2){fprintf(stderr,"usage: ktm {setup|pair|sync|inbox|last|copy|pending-path|run|send|status|diagnose|reset-pairing}\n");return 2;}int r=0;if(!strcmp(argv[1],"setup"))r=setup(&a);else if(!strcmp(argv[1],"pair"))r=pair(&a);else if(!strcmp(argv[1],"sync"))r=sync_updates(&a);else if(!strcmp(argv[1],"inbox"))r=inbox(&a);else if(!strcmp(argv[1],"last"))r=last(&a);else if(!strcmp(argv[1],"copy"))r=copy_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"pending-path"))r=pending_path(&a);else if(!strcmp(argv[1],"run"))r=run_command(&a);else if(!strcmp(argv[1],"send"))r=send_msg(&a,argc-2,argv+2);else if(!strcmp(argv[1],"status"))r=status_cmd(&a);else if(!strcmp(argv[1],"diagnose"))r=diagnose(&a);else if(!strcmp(argv[1],"reset-pairing"))r=reset_pairing(&a);else{fprintf(stderr,"unknown command: %s\n",argv[1]);r=2;}free(a.root);return r;}

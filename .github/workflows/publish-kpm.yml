@@ -45,6 +45,7 @@ jobs:
         run: |
           TEST_RUNNER=qemu-arm python3 tests/test_terminal.py native/ktm-input
           KTM_DATA_DIR=/tmp/ktm-arm-smoke qemu-arm native/ktm status
+          TEST_RUNNER=qemu-arm python3 tests/test_run_command.py native/ktm
       - name: Package and verify static ARM binaries
         run: |
           sh tools/build-kpkg.sh native/ktm kindlehf native/ktm-input
@@ -56,4 +57,4 @@ jobs:
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add manifest.json
           git add -f packages/ktm/artifacts
-          git diff --cached --quiet || (git commit -m 'Publish ktm 0.1.12 verified KPM package and feed' && git push)
+          git diff --cached --quiet || (git commit -m 'Publish ktm 0.1.13 command execution package and feed' && git push)

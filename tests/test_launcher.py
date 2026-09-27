@@ -47,21 +47,21 @@ class LauncherTests(unittest.TestCase):
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"ktm 0.1.12", p.stdout)
+        self.assertIn(b"ktm 0.1.13", p.stdout)
 
     def test_sync_error_returns_to_menu(self):
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"5\n\n7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertEqual(p.stdout.count(b"ktm 0.1.12"), 2)
+        self.assertEqual(p.stdout.count(b"ktm 0.1.13"), 2)
 
     def test_cli_status_does_not_start_gui(self):
         p = subprocess.run(["sh", str(self.package / "launch.sh"), "status"],
                            env=self.env, capture_output=True)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"version=0.1.12", p.stdout)
+        self.assertIn(b"version=0.1.13", p.stdout)
 
-    def test_full_menu_5_shell_and_return_to_menu(self):
+    def test_full_menu_8_edit_shell_and_return_to_menu(self):
         # Emulate KPM routing plus KTerm's exact space-only -e parser. There
         # is no GTK window here; the real PTY, session, helper and shell run.
         fake = self.root / "kpm"
@@ -105,7 +105,7 @@ class LauncherTests(unittest.TestCase):
             self.assertIn(needle, output, output)
         try:
             receive(b"Choose:")
-            os.write(master, b"5\r")
+            os.write(master, b"8\r")
             receive(b"user-confirmed")
             self.assertFalse(marker.exists())
             os.write(master, b"\r")
@@ -133,6 +133,42 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(p.returncode, 127)
         log = Path(self.env["KTM_DATA_DIR"]) / "logs" / "startup.log"
         self.assertEqual(log.read_text(), "loader-failed\n")
+
+    def test_menu_5_executes_multiline_command_and_keeps_result_visible(self):
+        subprocess.run([str(self.package / "bin" / "ktm"), "status"],
+                       env=self.env, capture_output=True, check=True)
+        inbox = Path(self.env["KTM_DATA_DIR"]) / "inbox" / "current.txt"
+        inbox.write_text("value='actual command'\nprintf '%s' \"$value\" > executed\n")
+        self.env["KTM_COMMAND_CWD"] = str(self.root)
+        self.env["MOCK_MODE"] = "empty"
+        master, slave = pty.openpty()
+        child = subprocess.Popen(["sh", str(self.package / "session.sh")], env=self.env,
+                                 stdin=slave, stdout=slave, stderr=slave, close_fds=True)
+        os.close(slave)
+        def receive(needle):
+            output = b""
+            deadline = time.monotonic() + 8
+            while needle not in output and time.monotonic() < deadline:
+                if select.select([master], [], [], .1)[0]:
+                    output += os.read(master, 8192)
+            self.assertIn(needle, output, output)
+        try:
+            receive(b"Choose:")
+            os.write(master, b"5\r")
+            receive(b"Enter alone cancels:")
+            self.assertFalse((self.root / "executed").exists())
+            os.write(master, b"r\r")
+            receive(b"Press Enter to return")
+            self.assertEqual((self.root / "executed").read_text(), "actual command")
+            os.write(master, b"\r")
+            receive(b"Choose:")
+            os.write(master, b"7\r")
+            self.assertEqual(child.wait(timeout=5), 0)
+        finally:
+            if child.poll() is None:
+                child.terminate()
+                child.wait(timeout=5)
+            os.close(master)
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ all: $(BIN) $(TERMINAL)
 build:
 	mkdir -p build
 
-$(BIN): src/tgbridge.c | build
+$(BIN): src/tgbridge.c src/run_command.h | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ src/tgbridge.c $(LDFLAGS) $(LDLIBS)
 
 $(TERMINAL): src/terminal.c | build
@@ -26,6 +26,7 @@ test: $(BIN) $(TERMINAL)
 	sh tests/test_mock_flow.sh ./$(BIN)
 	python3 tests/test_terminal.py ./$(TERMINAL)
 	python3 tests/test_launcher.py
+	python3 tests/test_run_command.py ./$(BIN)
 
 package: $(BIN) $(TERMINAL)
 	sh tools/build-kpkg.sh ./$(BIN) "$(TARGET_PLATFORM)" ./$(TERMINAL)

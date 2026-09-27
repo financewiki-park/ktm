@@ -25,12 +25,18 @@ jobs:
           export PATH="$toolchain/bin:$PATH"
           export PKG_CONFIG_SYSROOT_DIR="$sysroot"
           export PKG_CONFIG_LIBDIR="$sysroot/usr/lib/pkgconfig"
+          chmod -R u+w "$sysroot/usr"
+          curl -fsSL https://ftp.gnu.org/gnu/termcap/termcap-1.3.1.tar.gz -o /tmp/termcap.tar.gz
+          tar -xzf /tmp/termcap.tar.gz -C /tmp
+          cd /tmp/termcap-1.3.1
+          CC="$target-gcc" ./configure --host="$target" --prefix="$sysroot/usr" --disable-shared
+          make -j2
+          make install
           curl -fsSL https://download.gnome.org/sources/vte/0.28/vte-0.28.2.tar.xz -o /tmp/vte.tar.xz
           tar -xJf /tmp/vte.tar.xz -C /tmp
           cd /tmp/vte-0.28.2
           CC="$target-gcc" ./configure --host="$target" --disable-shared --enable-static --disable-python --disable-gnutls
           make -j2
-          chmod -R u+w "$sysroot/usr"
           cp src/.libs/libvte.a "$sysroot/usr/lib/"
           cp -R src "$sysroot/usr/include/vte"
           printf '%s\n' 'Name: vte' 'Description: static VTE' 'Version: 0.28.2' 'Libs: -lvte -ltermcap' 'Cflags: -I${includedir}/vte' > "$sysroot/usr/lib/pkgconfig/vte.pc"

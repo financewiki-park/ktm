@@ -51,7 +51,7 @@ jobs:
           make -j2
           cp src/.libs/libvte.a "$sysroot/usr/lib/"
           cp -R src "$sysroot/usr/include/vte"
-          printf '%s\n' 'Name: vte' 'Description: static VTE' 'Version: 0.28.2' 'Libs: -lvte -lncurses -lX11' 'Cflags: -I${includedir}/vte' > "$sysroot/usr/lib/pkgconfig/vte.pc"
+          printf '%s\n' 'Name: vte' 'Description: static VTE' 'Version: 0.28.2' 'Libs: -lvte -lncurses -lX11 -lm' 'Cflags: -I${includedir}/vte' > "$sysroot/usr/lib/pkgconfig/vte.pc"
           cd /tmp
           git clone --depth 1 https://github.com/bfabiszewski/kterm.git kterm
           cd kterm

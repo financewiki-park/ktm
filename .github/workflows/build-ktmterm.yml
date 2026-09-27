@@ -28,7 +28,9 @@ jobs:
           chmod -R u+w "$sysroot/usr"
           cp /usr/include/ncurses.h "$sysroot/usr/include/"
           cp -R /usr/include/ncursesw "$sysroot/usr/include/"
-          cp -R /usr/include/ncursesw "$sysroot/usr/include/ncurses"
+          cp /usr/include/ncursesw/ncurses_dll.h "$sysroot/usr/include/"
+          mkdir -p "$sysroot/usr/include/ncurses"
+          cp -R /usr/include/ncursesw/. "$sysroot/usr/include/ncurses/"
           curl -fsSL https://download.gnome.org/sources/vte/0.28/vte-0.28.2.tar.xz -o /tmp/vte.tar.xz
           tar -xJf /tmp/vte.tar.xz -C /tmp
           cd /tmp/vte-0.28.2

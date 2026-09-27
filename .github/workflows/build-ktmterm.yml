@@ -57,7 +57,7 @@ jobs:
           cd kterm
           git apply "$GITHUB_WORKSPACE/patches/kterm-telegram-paste.diff"
           ./autogen.sh
-          ./configure --host="$target" --enable-kindle --sysconfdir=/mnt/us/kterm
+          ./configure --host="$target" --enable-kindle --sysconfdir=/mnt/us/extensions/kterm
           make -j2
           "$target-strip" kterm
           cp kterm "$GITHUB_WORKSPACE/ktmterm-kindlehf"

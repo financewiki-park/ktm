@@ -10,11 +10,11 @@
       "description": "One-user Telegram bridge for Kindle",
       "artifacts": [
         {
-          "url": "packages/ktm/artifacts/ktm_0.1.13_kindlehf.kpkg",
+          "url": "packages/ktm/artifacts/ktm_0.1.14_kindlehf.kpkg",
           "version": [
             0,
             1,
-            13
+            14
           ],
           "dependencies": [
             {

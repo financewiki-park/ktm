@@ -16,4 +16,18 @@ test "$(wc -c < "$TMP/last.txt")" -eq 38
 test "$(tr '\n' '|' < "$TMP/last.txt")" = '한글|ssh --help|특수문자 ! $HOME'
 "$BIN" copy >/dev/null
 test "$(wc -c < "$TMP/data/inbox/latest.txt")" -eq 38
+printf 'queued for old bot\n' > "$TMP/data/outbox/pending.jsonl"
+printf 'new-token\n' | "$BIN" setup > "$TMP/token-change.out"
+grep -q 'Old pairing, inbox and update state were reset' "$TMP/token-change.out"
+"$BIN" status | grep -q 'pairing=none'
+test ! -e "$TMP/data/inbox/current.txt"
+test ! -e "$TMP/data/inbox/latest.txt"
+test "$(cat "$TMP/data/state/update_offset")" = 0
+test ! -e "$TMP/data/outbox/pending.jsonl"
+test -n "$(find "$TMP/data/state" -name 'outbox-before-token-*.jsonl' -print -quit)"
+new_code=$($BIN pair | awk '/Pairing code/{print $NF}')
+MOCK_MODE=pair MOCK_PAIR_CODE="$new_code" "$BIN" sync >/dev/null
+printf 'new-token\n' | "$BIN" setup > "$TMP/same-token.out"
+grep -q 'Existing pairing was kept' "$TMP/same-token.out"
+"$BIN" status | grep -q 'pairing=paired'
 printf 'mock pairing and UTF-8 flow passed\n'

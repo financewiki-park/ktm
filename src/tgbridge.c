@@ -16,7 +16,7 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#define VERSION "0.1.13"
+#define VERSION "0.1.14"
 #define MAX_RESPONSE (8U * 1024U * 1024U)
 
 typedef struct {
@@ -135,7 +135,24 @@ static void transport_error(int cc,int hc,const char *d){if(cc==6)fprintf(stderr
 static int api_ok(const char *s,long long *ec,long long *retry){const char *a,*b;int ok=0;if(!jget(s,s+strlen(s),"ok",&a,&b)||!jbool(a,&ok))return -1;if(ok)return 1;if(ec){*ec=0;if(jget(s,s+strlen(s),"error_code",&a,&b))jlong(a,b,ec);}if(retry){*retry=0;const char *p,*q;if(jget(s,s+strlen(s),"parameters",&p,&q)&&jget(p,q,"retry_after",&a,&b))jlong(a,b,retry);}return 0;}
 
 static void pair_code(char *out) { static const char al[]="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; unsigned char r[8]; int fd=open("/dev/urandom",O_RDONLY); if(fd>=0){read(fd,r,8);close(fd);}else{for(int i=0;i<8;i++)r[i]=(unsigned char)rand();} for(int i=0;i<4;i++)out[i]=al[r[i]%(sizeof(al)-1)];out[4]='-';for(int i=0;i<4;i++)out[5+i]=al[r[4+i]%(sizeof(al)-1)];out[9]=0; }
-static int setup(App *a) { char t[512]; fprintf(stderr,"Paste BotFather token on stdin; it will not be printed: "); if(!fgets(t,sizeof(t),stdin))return 1;trim(t);if(!*t)return 1;snprintf(a->token,sizeof(a->token),"%s",t);char *r=NULL,d[128]={0};int hc=0,cc=0;if(api(a,"getMe","{}",&r,&hc,&cc,d,sizeof(d))||api_ok(r,NULL,NULL)!=1){transport_error(cc,hc,d);free(r);return 1;}free(r);a->allowed_user_id=a->allowed_chat_id=-1;strcpy(a->pairing_state,"none");a->pairing_code[0]=0;a->pairing_expires=0;if(save_config(a)||save_pairing(a))die("validated token but could not save configuration");puts("Bot token validated and saved. Run: ktm pair");return 0;}
+static int reset_for_new_token(App *a) {
+    char p[PATH_MAX], archived[PATH_MAX];
+    a->allowed_user_id=a->allowed_chat_id=-1;
+    a->offset=0;
+    strcpy(a->pairing_state,"none"); a->pairing_code[0]=0; a->pairing_expires=0;
+    snprintf(p,sizeof(p),"%s/update_offset",a->state);
+    if(save_num(p,0)) return -1;
+    snprintf(p,sizeof(p),"%s/current.txt",a->inbox); unlink(p);
+    snprintf(p,sizeof(p),"%s/latest.txt",a->inbox); unlink(p);
+    /* Never send an old bot's queued outgoing messages to a newly paired bot. */
+    snprintf(p,sizeof(p),"%s/pending.jsonl",a->outbox);
+    if(access(p,F_OK)==0){
+        snprintf(archived,sizeof(archived),"%s/outbox-before-token-%lld.jsonl",a->state,(long long)time(NULL));
+        if(rename(p,archived)) return -1;
+    }
+    return save_pairing(a);
+}
+static int setup(App *a) { char t[512], old[sizeof(a->token)]; int changed; fprintf(stderr,"Paste BotFather token on stdin; it will not be printed: "); if(!fgets(t,sizeof(t),stdin))return 1;trim(t);if(!*t)return 1;snprintf(old,sizeof(old),"%s",a->token);snprintf(a->token,sizeof(a->token),"%s",t);char *r=NULL,d[128]={0};int hc=0,cc=0;if(api(a,"getMe","{}",&r,&hc,&cc,d,sizeof(d))||api_ok(r,NULL,NULL)!=1){transport_error(cc,hc,d);free(r);snprintf(a->token,sizeof(a->token),"%s",old);return 1;}free(r);changed=old[0]&&strcmp(old,a->token);if(changed&&reset_for_new_token(a))die("validated new token but could not reset old bot state");if(save_config(a)||(!changed&&save_pairing(a)))die("validated token but could not save configuration");if(changed)puts("New bot token saved. Old pairing, inbox and update state were reset. Choose 2 Pair, then 3 Sync.");else if(!old[0])puts("Bot token validated and saved. Choose 2 Pair, then 3 Sync.");else puts("Same bot token validated. Existing pairing was kept.");return 0;}
 static int pair(App *a) { if(!a->token[0])die("run tgbridge setup first");pair_code(a->pairing_code);a->pairing_expires=(long long)time(NULL)+600;strcpy(a->pairing_state,"pending");if(save_pairing(a))die("cannot save pairing state");printf("Pairing code (expires in 10 minutes): %s\nSend this exact command to your Bot: /pair %s\n",a->pairing_code,a->pairing_code);return 0; }
 
 /* The inbox is a one-message handoff, not a permanent notebook.  A newer

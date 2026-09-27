@@ -31,7 +31,7 @@ jobs:
           curl -fsSL https://download.gnome.org/sources/vte/0.28/vte-0.28.2.tar.xz -o /tmp/vte.tar.xz
           tar -xJf /tmp/vte.tar.xz -C /tmp
           cd /tmp/vte-0.28.2
-          CC="$target-gcc" ./configure --host="$target" --disable-shared --enable-static --disable-python --disable-gnutls
+          CC="$target-gcc" CPPFLAGS="-I$sysroot/usr/include/ncursesw" ./configure --host="$target" --disable-shared --enable-static --disable-python --disable-gnutls
           make -j2
           cp src/.libs/libvte.a "$sysroot/usr/lib/"
           cp -R src "$sysroot/usr/include/vte"

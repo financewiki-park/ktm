@@ -6,7 +6,7 @@
   "packages": {
     "ktm": {
       "name": "ktm",
-      "author": "financewiki-park",
+      "author": "kindle-lab",
       "description": "One-user Telegram bridge for Kindle",
       "artifacts": [
         {

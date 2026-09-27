@@ -29,7 +29,7 @@ jobs:
           curl -fsSL https://invisible-mirror.net/archives/ncurses/ncurses-6.4.tar.gz -o /tmp/ncurses.tar.gz
           tar -xzf /tmp/ncurses.tar.gz -C /tmp
           cd /tmp/ncurses-6.4
-          CC="$target-gcc" ./configure --host="$target" --prefix="$sysroot/usr" --without-shared --with-normal --without-debug --without-ada --without-manpages --without-tests --without-progs
+          CC="$target-gcc" ./configure --host="$target" --prefix="$sysroot/usr" --without-shared --with-normal --without-debug --without-ada --without-cxx --without-manpages --without-tests --without-progs
           make -j2
           make install.libs install.includes
           curl -fsSL https://download.gnome.org/sources/vte/0.28/vte-0.28.2.tar.xz -o /tmp/vte.tar.xz

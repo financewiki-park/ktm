@@ -23,7 +23,7 @@ Kindle KPM용 1인 Telegram Bot 브리지. 기기에 KUAL, Python, Bash, jq는 �
 최초 등록만 필요한 경우:
 
 ```sh
-/var/local/kmc/bin/kpm add-repo https://raw.githubusercontent.com/financewiki-park/ktm/main/manifest.json
+/var/local/kmc/bin/kpm add-repo https://raw.githubusercontent.com/kindle-lab/kpm-repo/main/manifest.json
 /var/local/kmc/bin/kpm install ktm
 ```
 

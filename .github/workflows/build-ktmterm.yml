@@ -26,19 +26,20 @@ jobs:
           export PKG_CONFIG_SYSROOT_DIR="$sysroot"
           export PKG_CONFIG_LIBDIR="$sysroot/usr/lib/pkgconfig"
           chmod -R u+w "$sysroot/usr"
-          cp /usr/include/ncurses.h "$sysroot/usr/include/"
-          cp -R /usr/include/ncursesw "$sysroot/usr/include/"
-          cp /usr/include/ncursesw/ncurses_dll.h "$sysroot/usr/include/"
-          mkdir -p "$sysroot/usr/include/ncurses"
-          cp -R /usr/include/ncursesw/. "$sysroot/usr/include/ncurses/"
+          curl -fsSL https://invisible-mirror.net/archives/ncurses/ncurses-6.4.tar.gz -o /tmp/ncurses.tar.gz
+          tar -xzf /tmp/ncurses.tar.gz -C /tmp
+          cd /tmp/ncurses-6.4
+          CC="$target-gcc" ./configure --host="$target" --prefix="$sysroot/usr" --without-shared --with-normal --without-debug --without-ada --without-manpages --without-tests --without-progs
+          make -j2
+          make install.libs install.includes
           curl -fsSL https://download.gnome.org/sources/vte/0.28/vte-0.28.2.tar.xz -o /tmp/vte.tar.xz
           tar -xJf /tmp/vte.tar.xz -C /tmp
           cd /tmp/vte-0.28.2
-          CC="$target-gcc" CPPFLAGS="-I$sysroot/usr/include -I$sysroot/usr/include/ncursesw" ./configure --host="$target" --disable-shared --enable-static --disable-python --disable-gnutls || { cat config.log; exit 1; }
+          CC="$target-gcc" CPPFLAGS="-I$sysroot/usr/include" ./configure --host="$target" --disable-shared --enable-static --disable-python --disable-gnutls || { cat config.log; exit 1; }
           make -j2
           cp src/.libs/libvte.a "$sysroot/usr/lib/"
           cp -R src "$sysroot/usr/include/vte"
-          printf '%s\n' 'Name: vte' 'Description: static VTE' 'Version: 0.28.2' 'Libs: -lvte -ltermcap' 'Cflags: -I${includedir}/vte' > "$sysroot/usr/lib/pkgconfig/vte.pc"
+          printf '%s\n' 'Name: vte' 'Description: static VTE' 'Version: 0.28.2' 'Libs: -lvte -lncurses' 'Cflags: -I${includedir}/vte' > "$sysroot/usr/lib/pkgconfig/vte.pc"
           cd /tmp
           git clone --depth 1 https://github.com/bfabiszewski/kterm.git kterm
           cd kterm

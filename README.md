@@ -1,119 +1,101 @@
 # ktm
 
-Kindle용 KPM 패키지에서 동작하는 1인용 Telegram Bot API 브리지입니다. 앱 이름과 실행 명령은 `ktm`입니다. KUAL, Python, jq, Bash, rootfs 영구 수정에 의존하지 않습니다.
+Kindle KPM용 1인 Telegram Bot 브리지. 기기에 KUAL, Python, Bash, jq는 필요하지 않습니다.
+현재 지원 플랫폼은 **kindlehf**입니다.
 
-현재 저장소에는 POSIX `sh` lifecycle/launcher, 외부 `curl`을 설정 파일 방식으로 호출하는 작은 C helper, Telegram `getUpdates`/`sendMessage`/`getMe`, pairing, 허용 user/chat ID 검사, update offset, inbox/outbox JSONL 저장, `latest.txt` 기반 복사 경로와 KTerm companion 연동 문서가 포함됩니다.
+## 복구 버전 0.1.11
 
-## 중요한 상태
+0.1.7–0.1.10의 자체 GTK/VTE 실행 파일은 기기 구동이 확인되지 않았고,
+사용자에게 5번 선택 시 종료 및 0.1.10 앱 시작 실패가 발생했습니다.
+0.1.11은 자체 GUI를 제거하고 설치된 공식 KPM `kterm`을 다시 사용합니다.
+빌드·자동 테스트 통과는 실제 Kindle 화면 동작 검증과 다릅니다.
+검토 내용은 [구조 및 검증 기록](docs/0.1.11-review.md)에 있습니다.
 
-실제 Kindle의 KPM 버전, `curl` TLS 지원, KTerm/VTE 버전, 화면 UI 프레임워크는 이 개발 PC에서 확인할 수 없습니다. `kpm/manifest.json`의 필드는 패키지 메타데이터 골격으로 제공하며, 실제 장치에서 아래 진단을 먼저 실행해야 합니다.
+## 설치 및 실행
+
+이미 저장소를 등록했다면 Kindle의 **기존 KTerm**에서:
 
 ```sh
-uname -a
-command -v kpm && kpm --version
-command -v curl && curl --version
-command -v kterm || true
+/var/local/kmc/bin/kpm install ktm
 ```
 
-실기기 검증 전에는 기존 KPM/KTerm 패키지를 덮어쓰거나 `/` 아래 파일을 수정하지 마십시오.
-
-## 빌드
+최초 등록만 필요한 경우:
 
 ```sh
-make
-make test
+/var/local/kmc/bin/kpm add-repo https://raw.githubusercontent.com/financewiki-park/ktm/main/manifest.json
+/var/local/kmc/bin/kpm install ktm
+```
+
+설치 후 라이브러리에서 `ktm`을 엽니다. 메뉴 상단은 `ktm 0.1.11`입니다.
+업데이트는 저장된 봇 토큰, 페어링, 메시지를 보존합니다.
+KPM이 공식 `kterm` 패키지를 의존성으로 관리합니다. ktm은 그 바이너리와 키보드를 덮어쓰지 않습니다.
+
+## 메뉴
+
+1. Setup: BotFather가 준 전체 토큰을 입력합니다.
+2. Pair: 표시된 `/pair 코드`를 자신의 Telegram 앱에서 만든 봇에게 보냅니다.
+3. Sync & Inbox: 메시지를 받아 표시합니다.
+4. Send: 해당 Telegram 채팅으로 답장합니다.
+5. Replace KTerm line: 수신한 한 줄을 같은 KTerm 창의 새 셸 입력 줄에 놓습니다.
+6. Status: 버전·페어링·동기화 상태를 표시합니다.
+7. Exit: 앱을 닫습니다.
+
+5번은 기존에 따로 열어 둔 KTerm의 명령줄을 바꾸는 기능이 아닙니다.
+ktm이 열린 공식 KTerm 창 안에 입력용 셸을 열며, 실제 프롬프트를 확인한 뒤 텍스트만 전달합니다.
+사용자가 Enter를 누르기 전에는 실행하지 않습니다.
+Ctrl+U로 입력을 지우거나 Ctrl+C로 취소할 수 있습니다.
+셸에서 `exit`를 입력하면 ktm 메뉴로 돌아갑니다.
+
+직접 입력은 현재 **512바이트 이하의 한 줄**만 지원합니다.
+줄바꿈·탭·제어문자 또는 더 긴 메시지는 메뉴에 이유를 표시하고 입력하지 않습니다.
+원문은 Inbox에 그대로 남습니다. 여러 줄을 그대로 셸에 보내면 마지막 Enter가 없어도
+중간 줄이 실행될 수 있으므로, 여러 줄 붙여넣기는 아직 지원하지 않습니다.
+수신 원문은 한글과 줄바꿈을 보존하지만, 한글 키보드 및 글꼴의 실기기 동작은 별도 검증이 필요합니다.
+
+## 저장과 오류 기록
+
+데이터는 `/var/local/ktm`에 저장하고 해당 위치에 쓸 수 없으면 `/mnt/us/ktm`을 사용합니다.
+`KTM_DATA_DIR` 설정이 있으면 우선합니다.
+`/mnt/us` 사용 시 토큰은 USB 저장소에서도 보일 수 있습니다.
+
+- `config/bridge.conf`: 토큰과 허용 사용자/채팅, 0600 권한
+- `state/`: 페어링과 Telegram 업데이트 위치
+- `inbox/current.txt`: 최신 수신 원문 **한 건**, 새 메시지로 덮어씀
+- `inbox/latest.txt`: Copy 명령으로 복사한 원문
+- `outbox/pending.jsonl`: 전송에 실패한 메시지
+- `logs/bridge.log`: 통신 진단
+- `logs/startup.log`: 가장 최근 KTerm 시작 오류
+
+5번은 메시지를 삭제하거나 누적하지 않습니다. 이전 버전의 `messages.jsonl`은 읽거나 추가하지 않습니다.
+앱이 열리지 않으면 기존 KTerm에서 아래 명령으로 기록을 볼 수 있습니다.
+
+```sh
+cat /var/local/ktm/logs/startup.log
+```
+
+CLI는 `/var/local/kmc/bin/kpm launch ktm status`처럼 사용합니다.
+`launch ktm`에 인자가 없으면 GUI를 열고, `status`, `sync`, `diagnose` 등을 붙이면 helper를 실행합니다.
+시스템 clipboard는 설치된 `xclip`/`xsel`이 있는 경우에만 가능하며 보장하지 않습니다.
+텔레그램 수신은 지정된 사용자와 채팅 한 개만 허용합니다.
+Telegram의 장기 미수신 보존 한계, 응답 유실 시 송신 중복 가능성은 남아 있습니다.
+
+## 빌드·검증·배포
+
+개발 PC에서 `make test`는 통신 mock 및 실제 PTY/셸 테스트를 실행합니다.
+테스트용 Python은 개발 PC/CI에만 필요합니다.
+
+배포 workflow는 Kindle용 libc를 가진 ARM 도구 모음으로 두 helper를 정적으로 빌드합니다.
+GTK/VTE를 빌드하거나 새 공유 라이브러리를 기기에 요구하지 않습니다.
+Linux 셸, BusyBox 셸, QEMU에서 ARM 실행 파일을 테스트한 뒤
+KPM manifest v2와 ELF 아키텍처·정적 링크를 검사합니다.
+통과한 `.kpkg`와 루트 `manifest.json`을 한 커밋으로 게시합니다.
+
+Kindle cross compiler를 설정한 새 빌드 디렉터리에서:
+
+```sh
+make CC=arm-kindlehf-linux-gnueabihf-gcc LDFLAGS=-static
 make package TARGET_PLATFORM=kindlehf
 ```
 
-Kindle용 cross compiler가 있는 경우 `CC`, `CFLAGS`, `SYSROOT`를 명시합니다. 플랫폼을 모르는 상태에서는 양쪽을 무조건 같은 바이너리로 포장하지 않습니다.
-
-## GitHub 배포
-
-저장소 이름은 `ktm`입니다. 새 버전은 테스트와 패키징 후 GitHub Release에 업로드합니다.
-
-```sh
-make test
-make package TARGET_PLATFORM=kindlehf
-make package TARGET_PLATFORM=kindlepw2
-gh release create v0.1.1 dist/ktm-kindlehf.kpkg dist/ktm-kindlepw2.kpkg --title "ktm v0.1.1" --generate-notes
-```
-
-저장소를 `financewiki-park/ktm`으로 만들 경우 가장 짧은 실사용 다운로드 주소는 다음과 같습니다.
-
-- [ktm-kindlehf.kpkg](https://github.com/financewiki-park/ktm/releases/latest/download/ktm-kindlehf.kpkg)
-- [ktm-kindlepw2.kpkg](https://github.com/financewiki-park/ktm/releases/latest/download/ktm-kindlepw2.kpkg)
-
-Release 페이지는 [github.com/financewiki-park/ktm/releases/latest](https://github.com/financewiki-park/ktm/releases/latest)입니다. GitHub 사용자명이나 저장소 소유자가 다르면 URL의 `financewiki-park`만 바꾸면 됩니다.
-
-## 사용 흐름
-
-## Kindle Library에 설치
-
-KPM은 PATH에 자동으로 들어가지 않을 수 있습니다. 먼저 표준 설치 경로를 확인합니다.
-
-```sh
-KPM=/var/local/kmc/bin/kpm
-ls -l "$KPM"
-```
-
-GitHub 저장소를 KPM에 등록하면 기기 플랫폼에 맞는 패키지를 자동으로 선택합니다.
-
-```sh
-"$KPM" add-repo https://raw.githubusercontent.com/financewiki-park/ktm/main/manifest.json
-"$KPM" update
-"$KPM" install ktm
-```
-
-설치하면 `install.sh`가 `/mnt/us/documents/ktm.sh` Scriptlet과 `/mnt/us/ktm-icon.png` 로고를 만들고, Scriptlet이 Kindle 기본 Library에 `ktm` 항목으로 표시됩니다. 설치 직후 아이콘이 바로 안 보이면 Kindle Library를 한 번 새로고침하거나 재부팅하십시오. KPM의 공식 Scriptlet 방식이며 KUAL이나 rootfs 수정은 사용하지 않습니다.
-
-직접 실행해야 할 때는 다음과 같습니다.
-
-```sh
-"$KPM" launch ktm
-```
-
-`/var/local/kmc/bin/kpm` 파일 자체가 없다면 KPM이 설치되지 않았거나 현재 탈옥 환경의 설치 경로가 다른 것입니다. 그 경우 먼저 기기에서 KPM 설치 경로를 확인해야 합니다.
-
-## 사용 흐름
-
-```sh
-ktm setup < bot-token.txt
-ktm pair
-ktm sync
-ktm inbox
-ktm last
-ktm copy
-ktm status
-ktm diagnose
-ktm reset-pairing
-```
-
-`setup`은 `getMe`로 토큰을 확인한 뒤 저장합니다. 토큰은 일반 로그나 process argument에 넣지 않도록 curl config 파일에만 기록되며, config 파일은 mode 0600으로 생성합니다. 단, `/mnt/us` fallback을 사용하면 USB mass storage에 토큰이 노출될 수 있습니다.
-
-`pair`가 출력한 일회용 코드를 Telegram Bot에 `/pair CODE`로 보내면 그 메시지의 `from.id`와 `chat.id`가 저장됩니다. pairing 뒤에는 다른 user/chat의 메시지를 표시하지 않습니다. Telegram에서 수신한 문자열은 자동 실행하지 않으며, KTerm 경로도 Enter를 넣지 않습니다.
-
-## 저장 위치
-
-기본 우선순위는 `/var/local/ktm`, 쓰기 불가 시 `/mnt/us/ktm`입니다. `KTM_DATA_DIR`로 명시할 수 있습니다.
-
-```text
-config/bridge.conf
-state/update_offset
-state/pairing_state
-state/pairing_code
-state/pairing_expires
-state/version
-inbox/messages.jsonl
-inbox/latest.txt
-outbox/pending.jsonl
-logs/bridge.log
-```
-
-패키지 디렉터리에는 이 데이터를 저장하지 않습니다. 업데이트/삭제 시 사용자 데이터는 보존되어야 합니다.
-
-## 제한과 후속 작업
-
-- 앱 실행/수동 `sync` 중심이며 상시 polling daemon을 설치하지 않습니다.
-- 24시간 이상 sync가 없으면 `status`에서 경고합니다. Telegram의 미수신 update 보존 한계 때문에 장기 offline 메시지는 복구되지 않을 수 있습니다.
-- Bot API는 네트워크 응답이 끊긴 뒤 이미 처리된 `sendMessage`를 완전히 구분할 idempotency key를 제공하지 않습니다. 따라서 outbox는 실패 시 보존하지만, 응답 유실 구간의 중복 전송 가능성은 운영상 한계입니다.
-- 실제 Kindle GUI와 KTerm VTE 직접 삽입은 해당 장치의 소스/ABI 확인 후 companion fork에서 구현해야 합니다. 자세한 안전 경계는 `kterm/README.md`를 참조하십시오.
+기존 host 바이너리가 있으면 먼저 빌드 결과를 분리해야 합니다.
+실기기 GTK 화면, 키보드, 절전 동작은 CI/QEMU로 검증되지 않습니다.

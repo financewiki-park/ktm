@@ -6,10 +6,11 @@ LDLIBS ?= -ldl
 TARGET_PLATFORM ?= host
 
 BIN := build/ktm
+TERMINAL := build/ktm-input
 
 .PHONY: all clean test package
 
-all: $(BIN)
+all: $(BIN) $(TERMINAL)
 
 build:
 	mkdir -p build
@@ -17,12 +18,17 @@ build:
 $(BIN): src/tgbridge.c | build
 	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ src/tgbridge.c $(LDFLAGS) $(LDLIBS)
 
-test: $(BIN)
+$(TERMINAL): src/terminal.c | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ src/terminal.c $(LDFLAGS)
+
+test: $(BIN) $(TERMINAL)
 	sh tests/test_host.sh ./$(BIN)
 	sh tests/test_mock_flow.sh ./$(BIN)
+	python3 tests/test_terminal.py ./$(TERMINAL)
+	python3 tests/test_launcher.py
 
-package: $(BIN)
-	sh tools/build-kpkg.sh ./$(BIN) "$(TARGET_PLATFORM)"
+package: $(BIN) $(TERMINAL)
+	sh tools/build-kpkg.sh ./$(BIN) "$(TARGET_PLATFORM)" ./$(TERMINAL)
 
 clean:
 	rm -rf build dist

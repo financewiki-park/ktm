@@ -1,25 +1,18 @@
-# KTerm companion boundary
+# KTerm 연동
 
-현재 설치된 KTerm binary를 patch하거나 덮어쓰지 않는다. 실기기에서 다음을 먼저 확인한다.
+0.1.11부터 공식 KPM KTerm의 화면과 키보드를 그대로 사용합니다.
+자체 GTK/VTE fork는 배포하지 않습니다.
 
-```sh
-kpm --version
-command -v kterm
-file "$(command -v kterm)"
-strings "$(command -v kterm)" | grep -E 'VTE|gtk|Paste|clipboard' || true
-```
+`KPM launch ktm → KPM launch kterm -e session.sh → ui.sh`
 
-KTerm 소스와 VTE ABI가 확보되면 companion/fork에서 `Paste Telegram` 메뉴를 추가하고, 선택 시 다음 파일을 읽어 terminal child input에 feed한다.
+5번을 누르면 `session.sh`가 정적으로 링크한 `ktm-input current.txt`를 실행합니다.
+중계 helper는 PTY를 할당하고 `/bin/sh -i`를 자식으로 시작합니다.
+고유한 PS1 프롬프트가 출력된 것을 확인하면 검증한 메시지 바이트만 그 PTY 입력에 씁니다.
+이후 KTerm 키 입력과 셸 출력을 양방향으로 중계합니다.
+사용자 Enter 전에 명령을 실행하지 않습니다.
+셸 종료 후 같은 KTerm 창에서 메뉴를 다시 표시합니다.
 
-```text
-<ktm-data-dir>/inbox/latest.txt
-```
-
-입력 전달은 VTE의 버전에 맞는 input-feed API를 사용한다. 구현 계약은 다음과 같다.
-
-1. 파일 바이트를 그대로 읽는다. UTF-8과 줄바꿈을 변경하지 않는다.
-2. system clipboard가 아니라 terminal input stream에만 넣을 수 있다.
-3. Enter, carriage return 삽입, shell 실행, `sh -c`, command substitution을 하지 않는다.
-4. 파일을 읽은 뒤에도 KTerm의 사용자가 직접 확인하고 Enter를 눌러야 한다.
-
-KTerm 소스/ABI 없이 이 저장소가 제공하는 것은 안전한 `latest.txt` producer와 경계 문서까지다. 임의 binary patch는 하지 않는다.
+한 줄 512바이트 제한과 제어문자 거부는 옛 셸의 입력 버퍼 및 개행 실행 위험 때문입니다.
+모든 실패와 성공에서 원문을 보존합니다.
+기존 KTerm 프로세스에 원격으로 입력하거나 시스템 clipboard에 의존하는 구조가 아닙니다.
+실기기에서 이미 열리는 공식 KTerm을 재사용하지만, 해당 Kindle에서 전체 동작 검증은 아직 필요합니다.

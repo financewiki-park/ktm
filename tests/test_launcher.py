@@ -6,6 +6,7 @@ import select
 import shlex
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -28,7 +29,7 @@ class LauncherTests(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_official_kterm_launcher_and_quoted_session(self):
+    def test_official_kterm_strtok_command_contract(self):
         fake = self.root / "kpm"
         fake.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\"\n")
         fake.chmod(0o700)
@@ -37,28 +38,47 @@ class LauncherTests(unittest.TestCase):
         self.assertEqual(p.returncode, 0, p.stderr)
         args = p.stdout.decode().splitlines()
         self.assertEqual(args[:3], ["launch", "kterm", "-e"])
-        self.assertEqual(shlex.split(args[3]), ["/bin/sh", str(self.package / "session.sh")])
+        # bfabiszewski/kterm setup_terminal uses strtok(command, " "), not
+        # g_shell_parse_argv. Quotes would be passed literally and break launch.
+        self.assertEqual(args[3].split(" "), [str(fake), "launch", "ktm", "--ui"])
 
     def test_menu_is_readable_even_without_execute_bit(self):
         (self.package / "ui.sh").chmod(0o600)
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"ktm 0.1.11", p.stdout)
+        self.assertIn(b"ktm 0.1.12", p.stdout)
 
     def test_sync_error_returns_to_menu(self):
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"5\n\n7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertEqual(p.stdout.count(b"ktm 0.1.11"), 2)
+        self.assertEqual(p.stdout.count(b"ktm 0.1.12"), 2)
 
     def test_cli_status_does_not_start_gui(self):
         p = subprocess.run(["sh", str(self.package / "launch.sh"), "status"],
                            env=self.env, capture_output=True)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"version=0.1.11", p.stdout)
+        self.assertIn(b"version=0.1.12", p.stdout)
 
     def test_full_menu_5_shell_and_return_to_menu(self):
+        # Emulate KPM routing plus KTerm's exact space-only -e parser. There
+        # is no GTK window here; the real PTY, session, helper and shell run.
+        fake = self.root / "kpm"
+        fake.write_text(
+            "#!" + sys.executable + "\n"
+            "import os, sys\n"
+            "if sys.argv[1:4] == ['launch', 'kterm', '-e']:\n"
+            "    args = [x for x in sys.argv[4].split(' ') if x]\n"
+            "    os.execv(args[0], args)\n"
+            "elif sys.argv[1:] == ['launch', 'ktm', '--ui']:\n"
+            "    os.execv('/bin/sh', ['sh', os.environ['KTM_TEST_PACKAGE'] + '/launch.sh', '--ui'])\n"
+            "else:\n"
+            "    sys.exit(90)\n"
+        )
+        fake.chmod(0o700)
+        self.env["KTM_KPM"] = str(fake)
+        self.env["KTM_TEST_PACKAGE"] = str(self.package)
         core = str(self.package / "bin" / "ktm")
         subprocess.run([core, "setup"], input=b"not-a-real-token\n", env=self.env,
                        capture_output=True, check=True)
@@ -73,7 +93,7 @@ class LauncherTests(unittest.TestCase):
         original = f"touch {shlex.quote(str(marker))}".encode()
         message.write_bytes(original)
         master, slave = pty.openpty()
-        child = subprocess.Popen(["sh", str(self.package / "session.sh")], env=self.env,
+        child = subprocess.Popen(["sh", str(self.package / "launch.sh")], env=self.env,
                                  stdin=slave, stdout=slave, stderr=slave, close_fds=True)
         os.close(slave)
         def receive(needle):

@@ -1,9 +1,11 @@
 # KTerm 연동
 
-0.1.11부터 공식 KPM KTerm의 화면과 키보드를 그대로 사용합니다.
+0.1.12는 공식 KPM KTerm의 화면과 키보드를 그대로 사용합니다.
 자체 GTK/VTE fork는 배포하지 않습니다.
 
-`KPM launch ktm → KPM launch kterm -e session.sh → ui.sh`
+`KPM launch ktm → KPM launch kterm -e 'KPM launch ktm --ui' → session.sh → ui.sh`
+
+KTerm의 -e는 공백으로만 인자를 분리하므로 내부 명령 문자열에 경로 따옴표를 넣지 않습니다.
 
 5번을 누르면 `session.sh`가 정적으로 링크한 `ktm-input current.txt`를 실행합니다.
 중계 helper는 PTY를 할당하고 `/bin/sh -i`를 자식으로 시작합니다.

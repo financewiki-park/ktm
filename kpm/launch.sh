@@ -16,6 +16,7 @@ esac
 umask 077
 mkdir -p "$KTM_DATA_DIR/logs"
 KPM=${KTM_KPM:-/var/local/kmc/bin/kpm}
-# Preserve the installed KTerm keyboard and runtime settings.
-exec "$KPM" launch kterm -e "/bin/sh \"$SELF_DIR/session.sh\"" \
+# KTerm 2.6 splits -e on spaces using strtok, without shell quote parsing.
+# Pass only the fixed, space-free KPM command; --ui resolves package paths.
+exec "$KPM" launch kterm -e "$KPM launch ktm --ui" \
     2>"$KTM_DATA_DIR/logs/startup.log"

@@ -7,6 +7,6 @@ export KTM_DATA_DIR="$TMP/data"
 export KINDLE_PLATFORM=kindlepw2
 "$BIN" diagnose | grep -q 'platform=kindlepw2'
 "$BIN" status | grep -q 'pairing=none'
-"$BIN" inbox | grep -q 'no messages'
+"$BIN" inbox | grep -q 'no pending message'
 "$BIN" reset-pairing | grep -q 'pairing reset'
 echo 'host smoke test passed'

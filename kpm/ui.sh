@@ -13,7 +13,7 @@ pause() {
 while :; do
     clear 2>/dev/null || true
     printf '%s\n' 'ktm — Kindle Telegram Bridge'
-    printf '%s\n\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send  5 Paste latest to KTerm  6 Status  7 Exit'
+    printf '%s\n\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send  5 Replace KTerm line  6 Status  7 Exit'
     printf 'Choose: '
     IFS= read -r choice || exit 0
     case "$choice" in
@@ -44,10 +44,12 @@ while :; do
             pause
             ;;
         5)
-            printf '\nSyncing latest Telegram message…\n'
-            if "$KTM" sync && "$KTM" paste; then
-                printf '\nStarting KTerm shell now. Review the inserted text, then press Enter yourself.\n'
-                exec /bin/sh
+            printf '\nSyncing one pending Telegram message…\n'
+            if "$KTM" sync; then
+                if pending_path=$("$KTM" pending-path); then
+                    printf '\nStarting the native terminal. It will replace the editable command line without pressing Enter.\n'
+                    exec "$SELF_DIR/bin/ktmterm" -P "$pending_path"
+                fi
             fi
             pause
             ;;

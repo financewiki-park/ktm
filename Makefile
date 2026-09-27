@@ -14,8 +14,8 @@ all: $(BIN)
 build:
 	mkdir -p build
 
-$(BIN): src/tgbridge.c src/x11_paste.c src/x11_paste.h | build
-	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ src/tgbridge.c src/x11_paste.c $(LDFLAGS) $(LDLIBS)
+$(BIN): src/tgbridge.c | build
+	$(CC) $(CPPFLAGS) $(CFLAGS) -o $@ src/tgbridge.c $(LDFLAGS) $(LDLIBS)
 
 test: $(BIN)
 	sh tests/test_host.sh ./$(BIN)

@@ -32,6 +32,18 @@ jobs:
           CC="$target-gcc" ./configure --host="$target" --prefix="$sysroot/usr" --without-shared --with-normal --without-debug --without-ada --without-cxx --without-manpages --without-tests --without-progs
           make -j2
           make install.libs install.includes
+          cat > "$sysroot/usr/lib/pkgconfig/gio-unix-2.0.pc" <<'EOF'
+          Name: gio-unix
+          Description: GIO Unix extensions supplied by Kindle firmware
+          Version: 2.26.0
+          Requires: gio-2.0
+          EOF
+          cat > "$sysroot/usr/lib/pkgconfig/cairo-xlib.pc" <<'EOF'
+          Name: cairo-xlib
+          Description: Cairo Xlib backend supplied by Kindle firmware
+          Version: 1.10.2
+          Requires: cairo x11
+          EOF
           curl -fsSL https://download.gnome.org/sources/vte/0.28/vte-0.28.2.tar.xz -o /tmp/vte.tar.xz
           tar -xJf /tmp/vte.tar.xz -C /tmp
           cd /tmp/vte-0.28.2

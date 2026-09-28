@@ -9,9 +9,14 @@ export TG_CURL="$ROOT/tests/mock_curl.sh"
 
 printf 'not-a-real-token\n' | "$BIN" setup >/dev/null
 "$BIN" bot-info | grep -q 'Configured bot: @ktm_test_bot (id 123)'
+"$BIN" bot-info | grep -q 'Webhook status: inactive'
+MOCK_WEBHOOK=active "$BIN" bot-info | grep -q 'Webhook status: active (pending updates: 3)'
 code=$($BIN pair | awk '/Pairing code/{print $NF}')
 MOCK_MODE=empty "$BIN" sync | grep -q 'Pairing still waiting'
-MOCK_MODE=pair MOCK_PAIR_CODE="$code" "$BIN" sync >/dev/null
+MOCK_MODE=pair MOCK_PAIR_CODE="$code" MOCK_PAIR_TEXT="/pair@ktm_test_bot $code" "$BIN" sync >/dev/null
+MOCK_MODE=conflict "$BIN" sync >"$TMP/conflict.out" 2>"$TMP/conflict.err" && exit 1 || :
+grep -q 'HTTP 409, code 409' "$TMP/conflict.err"
+grep -q 'another client may be polling it, or a webhook is active' "$TMP/conflict.err"
 MOCK_MODE=message "$BIN" sync >/dev/null
 "$BIN" last > "$TMP/last.txt"
 test "$(wc -c < "$TMP/last.txt")" -eq 38

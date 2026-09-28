@@ -4,7 +4,7 @@
   "name": "ktm",
   "author": "kindle-lab",
   "description": "One-user Telegram bridge for Kindle",
-  "version": [0, 1, 15],
+  "version": [0, 1, 16],
   "dependencies": [{"id": "kterm", "min": [2, 6, 0]}],
   "supported_platforms": ["kindlehf"]
 }

@@ -16,7 +16,7 @@
 #ifndef PATH_MAX
 #define PATH_MAX 4096
 #endif
-#define VERSION "0.1.15"
+#define VERSION "0.1.16"
 #define MAX_RESPONSE (8U * 1024U * 1024U)
 
 typedef struct {
@@ -133,6 +133,13 @@ done:
 }
 static void transport_error(int cc,int hc,const char *d){if(cc==6)fprintf(stderr,"DNS failure: %s\n",d);else if(cc==7)fprintf(stderr,"Telegram API unreachable: %s\n",d);else if(cc==28)fprintf(stderr,"HTTPS timeout: %s\n",d);else if(cc==35||cc==51||cc==60)fprintf(stderr,"TLS/HTTPS failure: %s\n",d);else if(cc)fprintf(stderr,"HTTPS transport failure: %s\n",d);else fprintf(stderr,"Telegram HTTP error: %d\n",hc);}
 static int api_ok(const char *s,long long *ec,long long *retry){const char *a,*b;int ok=0;if(!jget(s,s+strlen(s),"ok",&a,&b)||!jbool(a,&ok))return -1;if(ok)return 1;if(ec){*ec=0;if(jget(s,s+strlen(s),"error_code",&a,&b))jlong(a,b,ec);}if(retry){*retry=0;const char *p,*q;if(jget(s,s+strlen(s),"parameters",&p,&q)&&jget(p,q,"retry_after",&a,&b))jlong(a,b,retry);}return 0;}
+static char *api_description(const char *s) { const char *a,*b; char *d=NULL; if(s&&jget(s,s+strlen(s),"description",&a,&b))jstr(a,b,&d); return d; }
+static void print_api_error(const char *s,int http,long long ec) {
+    char *description=api_description(s);
+    fprintf(stderr,"Telegram API error (HTTP %d, code %lld)%s%s\n",http,ec,description?": ":"",description?description:"");
+    if(ec==409) fputs("The bot has a getUpdates conflict: another client may be polling it, or a webhook is active. Check menu 6 for webhook status and stop the other receiver before syncing.\n",stderr);
+    free(description);
+}
 
 static void pair_code(char *out) { static const char al[]="ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; unsigned char r[8]; int fd=open("/dev/urandom",O_RDONLY); if(fd>=0){read(fd,r,8);close(fd);}else{for(int i=0;i<8;i++)r[i]=(unsigned char)rand();} for(int i=0;i<4;i++)out[i]=al[r[i]%(sizeof(al)-1)];out[4]='-';for(int i=0;i<4;i++)out[5+i]=al[r[4+i]%(sizeof(al)-1)];out[9]=0; }
 static int reset_for_new_token(App *a) {
@@ -180,12 +187,34 @@ static int bot_info(App *a) {
     if(jget(rs,re,"first_name",&s,&e)) jstr(s,e,&name);
     printf("Configured bot: %s%s (id %lld)\n",
            username?"@":"",username?username:(name?name:"unnamed"),(long long)id);
-    free(username); free(name); free(r); return 0;
+    free(username); free(name); free(r);
+    r=NULL; d[0]=0; hc=cc=0;
+    if(api(a,"getWebhookInfo","{}",&r,&hc,&cc,d,sizeof(d))||api_ok(r,NULL,NULL)!=1) {
+        fputs("Webhook status: unavailable (getWebhookInfo failed).\n",stderr); transport_error(cc,hc,d); free(r); return 1;
+    }
+    const char *ws,*we; char *url=NULL; long long pending=0;
+    if(!jget(r,r+strlen(r),"result",&ws,&we) || !jget(ws,we,"url",&s,&e) || !jstr(s,e,&url)) {
+        free(r); fputs("Telegram returned an invalid getWebhookInfo response.\n",stderr); return 1;
+    }
+    if(jget(ws,we,"pending_update_count",&s,&e))jlong(s,e,&pending);
+    if(*url) printf("Webhook status: active (pending updates: %lld). Disable the webhook receiver before ktm can sync.\n",pending);
+    else puts("Webhook status: inactive.");
+    free(url); free(r); return 0;
+}
+
+static int pairing_message_matches(const char *text,const char *code) {
+    if(strncmp(text,"/pair",5))return 0;
+    const char *p=text+5;
+    if(*p=='@'){while(*p&&!isspace((unsigned char)*p))p++;}
+    if(!isspace((unsigned char)*p))return 0;
+    while(isspace((unsigned char)*p))p++;
+    size_t n=strlen(code);
+    return !strncmp(p,code,n) && (p[n]==0 || isspace((unsigned char)p[n]));
 }
 
 static int sync_updates(App *a) {
-    char b[256];snprintf(b,sizeof(b),"{\"offset\":%lld,\"timeout\":%d,\"allowed_updates\":[\"message\"]}",a->offset,a->poll_timeout);char *r=NULL,d[128]={0};int hc=0,cc=0;if(api(a,"getUpdates",b,&r,&hc,&cc,d,sizeof(d))){transport_error(cc,hc,d);return 1;}long long ec=0,ra=0;int ok=api_ok(r,&ec,&ra);if(ok!=1){if(ra)fprintf(stderr,"Telegram rate limit; retry after %lld seconds\n",ra);else fprintf(stderr,"Telegram API error code=%lld\n",ec);free(r);return 1;}const char *as,*ae;if(!jget(r,r+strlen(r),"result",&as,&ae)||*as!='['){free(r);fprintf(stderr,"malformed Telegram JSON: result is not an array\n");return 1;}const char *p=as+1;while(p<ae&&*p!=']'){while(p<ae&&(isspace((unsigned char)*p)||*p==','))p++;if(p>=ae||*p==']')break;const char *ue=jskip(p,ae);if(!ue){free(r);fprintf(stderr,"malformed update JSON; offset unchanged\n");return 1;}const char *s,*e;long long uid=0;if(!jget(p,ue,"update_id",&s,&e)||!jlong(s,e,&uid)){free(r);return 1;}const char *ms,*me;if(!jget(p,ue,"message",&ms,&me)){a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);if(save_num(op,a->offset)){free(r);return 1;}p=ue;continue;}char *text=NULL;long long mid=0,from=0,chat=0,date=0;if(!jget(ms,me,"text",&s,&e)||!jstr(s,e,&text)||!jget(ms,me,"message_id",&s,&e)||!jlong(s,e,&mid)||!jget(ms,me,"date",&s,&e)||!jlong(s,e,&date)){free(text);a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);save_num(op,a->offset);p=ue;continue;}const char *os,*oe;if(jget(ms,me,"from",&os,&oe)&&jget(os,oe,"id",&s,&e))jlong(s,e,&from);if(jget(ms,me,"chat",&os,&oe)&&jget(os,oe,"id",&s,&e))jlong(s,e,&chat);
-        if(!strcmp(a->pairing_state,"pending")){char want[64];snprintf(want,sizeof(want),"/pair %s",a->pairing_code);if(time(NULL)<=a->pairing_expires&&!strcmp(text,want)){a->allowed_user_id=from;a->allowed_chat_id=chat;strcpy(a->pairing_state,"paired");a->pairing_code[0]=0;a->pairing_expires=0;if(save_config(a)||save_pairing(a)){free(text);free(r);return 1;}puts("Pairing succeeded.");}else log_msg(a,"pairing message discarded");}
+    char b[256];snprintf(b,sizeof(b),"{\"offset\":%lld,\"timeout\":%d,\"allowed_updates\":[\"message\"]}",a->offset,a->poll_timeout);char *r=NULL,d[128]={0};int hc=0,cc=0;if(api(a,"getUpdates",b,&r,&hc,&cc,d,sizeof(d))){transport_error(cc,hc,d);return 1;}long long ec=0,ra=0;int ok=api_ok(r,&ec,&ra);if(ok!=1){if(ra)fprintf(stderr,"Telegram rate limit; retry after %lld seconds\n",ra);else print_api_error(r,hc,ec);free(r);return 1;}const char *as,*ae;if(!jget(r,r+strlen(r),"result",&as,&ae)||*as!='['){free(r);fprintf(stderr,"malformed Telegram JSON: result is not an array\n");return 1;}const char *p=as+1;while(p<ae&&*p!=']'){while(p<ae&&(isspace((unsigned char)*p)||*p==','))p++;if(p>=ae||*p==']')break;const char *ue=jskip(p,ae);if(!ue){free(r);fprintf(stderr,"malformed update JSON; offset unchanged\n");return 1;}const char *s,*e;long long uid=0;if(!jget(p,ue,"update_id",&s,&e)||!jlong(s,e,&uid)){free(r);return 1;}const char *ms,*me;if(!jget(p,ue,"message",&ms,&me)){a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);if(save_num(op,a->offset)){free(r);return 1;}p=ue;continue;}char *text=NULL;long long mid=0,from=0,chat=0,date=0;if(!jget(ms,me,"text",&s,&e)||!jstr(s,e,&text)||!jget(ms,me,"message_id",&s,&e)||!jlong(s,e,&mid)||!jget(ms,me,"date",&s,&e)||!jlong(s,e,&date)){free(text);a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);save_num(op,a->offset);p=ue;continue;}const char *os,*oe;if(jget(ms,me,"from",&os,&oe)&&jget(os,oe,"id",&s,&e))jlong(s,e,&from);if(jget(ms,me,"chat",&os,&oe)&&jget(os,oe,"id",&s,&e))jlong(s,e,&chat);
+        if(!strcmp(a->pairing_state,"pending")){if(time(NULL)<=a->pairing_expires&&pairing_message_matches(text,a->pairing_code)){a->allowed_user_id=from;a->allowed_chat_id=chat;strcpy(a->pairing_state,"paired");a->pairing_code[0]=0;a->pairing_expires=0;if(save_config(a)||save_pairing(a)){free(text);free(r);return 1;}puts("Pairing succeeded.");}else log_msg(a,"pairing message discarded");}
         else if(!strcmp(a->pairing_state,"paired")){if(from!=a->allowed_user_id||chat!=a->allowed_chat_id)log_msg(a,"unauthorized message discarded from user/chat %lld/%lld",from,chat);else if(append_message(a,uid,mid,from,chat,date,text)){free(text);free(r);return 1;}}
         else log_msg(a,"message discarded before pairing");free(text);a->offset=uid+1;char op[PATH_MAX];snprintf(op,sizeof(op),"%s/update_offset",a->state);if(save_num(op,a->offset)){free(r);return 1;}p=ue;}
     mark_sync(a); free(r);

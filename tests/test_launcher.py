@@ -47,19 +47,27 @@ class LauncherTests(unittest.TestCase):
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"ktm 0.1.15", p.stdout)
+        self.assertIn(b"ktm 0.1.16", p.stdout)
 
     def test_sync_error_returns_to_menu(self):
+        self.env["MOCK_MODE"] = "conflict"
+        marker = self.root / "must-not-run"
+        message = Path(self.env["KTM_DATA_DIR"]) / "inbox" / "current.txt"
+        message.parent.mkdir(parents=True, exist_ok=True)
+        message.write_text(f"touch {shlex.quote(str(marker))}\n")
         p = subprocess.run(["sh", str(self.package / "session.sh")], input=b"5\n\n7\n",
                            env=self.env, capture_output=True, timeout=5)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertEqual(p.stdout.count(b"ktm 0.1.15"), 2)
+        self.assertEqual(p.stdout.count(b"ktm 0.1.16"), 2)
+        self.assertIn(b"The command was not run", p.stdout)
+        self.assertIn(b"another client may be polling it, or a webhook is active", p.stderr)
+        self.assertFalse(marker.exists())
 
     def test_cli_status_does_not_start_gui(self):
         p = subprocess.run(["sh", str(self.package / "launch.sh"), "status"],
                            env=self.env, capture_output=True)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn(b"version=0.1.15", p.stdout)
+        self.assertIn(b"version=0.1.16", p.stdout)
 
     def test_full_menu_8_edit_shell_and_return_to_menu(self):
         # Emulate KPM routing plus KTerm's exact space-only -e parser. There

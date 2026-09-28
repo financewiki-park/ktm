@@ -12,7 +12,7 @@ pause() {
 
 while :; do
     clear 2>/dev/null || true
-    printf '%s\n' 'ktm 0.1.15 — Kindle Telegram Bridge'
+    printf '%s\n' 'ktm 0.1.16 — Kindle Telegram Bridge'
     printf '%s\n' '1 Setup  2 Pair  3 Sync & Inbox  4 Send'
     printf '%s\n\n' '5 Run received command  6 Status  7 Exit  8 Edit one-line command'
     printf 'Choose: '
@@ -30,8 +30,11 @@ while :; do
             ;;
         3)
             printf '\nSyncing…\n'
-            "$KTM" sync
-            "$KTM" inbox
+            if "$KTM" sync; then
+                "$KTM" inbox
+            else
+                printf '\nSync failed. No new Telegram messages were received; the saved message was not changed.\n'
+            fi
             pause
             ;;
         4)
@@ -47,7 +50,9 @@ while :; do
         5|8)
             printf '\nSyncing one pending Telegram message…\n'
             if ! "$KTM" sync; then
-                printf '\nSync failed. Checking the message already saved on this Kindle.\n'
+                printf '\nSync failed. The command was not run; fix the connection and sync again.\n'
+                pause
+                continue
             fi
             if [ "$choice" = 5 ]; then
                 "$KTM" run
